@@ -157,7 +157,12 @@ function CheckinPage() {
   function startCheckin(guest: Guest) {
     const remaining = guest.ticket_quantity - guest.checked_in_count;
     if (remaining <= 0) {
-      // Already fully checked in — confirm extra
+      if (strictMode) {
+        toast.error(
+          `${guest.full_name} já fez check-in completo (${guest.checked_in_count}/${guest.ticket_quantity}). Desative o modo estrito para permitir entrada extra.`,
+        );
+        return;
+      }
       setConfirmGuest(guest);
       setConfirmPeople(1);
       return;
@@ -168,6 +173,11 @@ function CheckinPage() {
 
   async function performCheckin() {
     if (!confirmGuest || !eventId || confirmPeople < 1) return;
+    const remaining = confirmGuest.ticket_quantity - confirmGuest.checked_in_count;
+    if (strictMode && confirmPeople > Math.max(remaining, 0)) {
+      toast.error(`Modo estrito: máximo ${Math.max(remaining, 0)} pessoa(s) restante(s).`);
+      return;
+    }
     const { error } = await supabase.from("checkins").insert({
       guest_id: confirmGuest.id,
       event_id: eventId,
