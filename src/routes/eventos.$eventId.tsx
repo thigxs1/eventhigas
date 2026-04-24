@@ -89,6 +89,30 @@ function EventDetailPage() {
   const [event, setEvent] = useState<EventRow | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("lista");
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      // Shift + P → abrir aba "Adicionar manual"
+      if (e.shiftKey && (e.key === "P" || e.key === "p")) {
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName;
+        const isTyping =
+          tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable;
+        if (isTyping) return;
+        e.preventDefault();
+        setActiveTab("adicionar");
+        toast.info("Adicionar pessoa", { description: "Atalho Shift + P" });
+        // Focar primeiro campo após renderizar a aba
+        setTimeout(() => {
+          const el = document.querySelector<HTMLInputElement>("[data-manual-guest-first]");
+          el?.focus();
+        }, 80);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   async function load() {
     setLoading(true);
