@@ -294,11 +294,16 @@ function EventDetailPage() {
         <StatCard label="Pendentes" value={stats.pending} icon={Users} accent="warning" />
       </div>
 
-      <Tabs defaultValue="lista" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-surface">
           <TabsTrigger value="lista">Lista de convidados</TabsTrigger>
           <TabsTrigger value="importar">Importar planilha</TabsTrigger>
-          <TabsTrigger value="adicionar">Adicionar manual</TabsTrigger>
+          <TabsTrigger value="adicionar">
+            Adicionar manual
+            <kbd className="ml-2 hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+              ⇧P
+            </kbd>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="lista" className="mt-4">
