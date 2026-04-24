@@ -14,7 +14,175 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      checkins: {
+        Row: {
+          checked_in_at: string
+          event_id: string
+          guest_id: string
+          id: string
+          operator: string | null
+          people_count: number
+        }
+        Insert: {
+          checked_in_at?: string
+          event_id: string
+          guest_id: string
+          id?: string
+          operator?: string | null
+          people_count?: number
+        }
+        Update: {
+          checked_in_at?: string
+          event_id?: string
+          guest_id?: string
+          id?: string
+          operator?: string | null
+          people_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkins_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkins_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_date: string
+          event_time: string | null
+          id: string
+          location: string | null
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_time?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_time?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      guests: {
+        Row: {
+          checked_in_count: number
+          cpf: string | null
+          created_at: string
+          event_id: string
+          full_name: string
+          id: string
+          notes: string | null
+          phone: string | null
+          ticket_quantity: number
+          ticket_type: string
+          updated_at: string
+        }
+        Insert: {
+          checked_in_count?: number
+          cpf?: string | null
+          created_at?: string
+          event_id: string
+          full_name: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          ticket_quantity?: number
+          ticket_type?: string
+          updated_at?: string
+        }
+        Update: {
+          checked_in_count?: number
+          cpf?: string | null
+          created_at?: string
+          event_id?: string
+          full_name?: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          ticket_quantity?: number
+          ticket_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guests_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_history: {
+        Row: {
+          created_at: string
+          errors: Json | null
+          event_id: string
+          filename: string
+          id: string
+          imported_rows: number
+          skipped_rows: number
+          total_rows: number
+        }
+        Insert: {
+          created_at?: string
+          errors?: Json | null
+          event_id: string
+          filename: string
+          id?: string
+          imported_rows?: number
+          skipped_rows?: number
+          total_rows?: number
+        }
+        Update: {
+          created_at?: string
+          errors?: Json | null
+          event_id?: string
+          filename?: string
+          id?: string
+          imported_rows?: number
+          skipped_rows?: number
+          total_rows?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_history_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
