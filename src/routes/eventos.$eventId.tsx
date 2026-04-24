@@ -5,14 +5,26 @@ import { ptBR } from "date-fns/locale";
 import {
   ArrowLeft,
   CalendarClock,
+  CheckCircle2,
   Download,
   MapPin,
+  MoreVertical,
+  RotateCcw,
   ScanLine,
   Trash2,
   Upload,
   UserPlus,
   Users,
+  XCircle,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -113,6 +125,20 @@ function EventDetailPage() {
     navigate({ to: "/eventos" });
   }
 
+  async function changeStatus(newStatus: "active" | "finished" | "cancelled") {
+    const { error } = await supabase
+      .from("events")
+      .update({ status: newStatus })
+      .eq("id", eventId);
+    if (error) {
+      toast.error("Erro ao atualizar status");
+      return;
+    }
+    const labels = { active: "reaberto", finished: "finalizado", cancelled: "cancelado" };
+    toast.success(`Evento ${labels[newStatus]}`);
+    load();
+  }
+
   if (loading) {
     return <div className="p-10 text-center text-muted-foreground">Carregando…</div>;
   }
@@ -183,27 +209,56 @@ function EventDetailPage() {
                 <ScanLine className="size-4" /> Check-in
               </Button>
             </Link>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="icon" aria-label="Excluir">
-                  <Trash2 className="size-4" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" aria-label="Mais ações">
+                  <MoreVertical className="size-4" />
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Excluir este evento?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Todos os convidados e check-ins deste evento também serão removidos. Essa ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={deleteEvent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Excluir
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Status do evento</DropdownMenuLabel>
+                {event.status !== "finished" && (
+                  <DropdownMenuItem onClick={() => changeStatus("finished")}>
+                    <CheckCircle2 className="size-4" /> Finalizar evento
+                  </DropdownMenuItem>
+                )}
+                {event.status !== "active" && (
+                  <DropdownMenuItem onClick={() => changeStatus("active")}>
+                    <RotateCcw className="size-4" /> Reabrir evento
+                  </DropdownMenuItem>
+                )}
+                {event.status !== "cancelled" && (
+                  <DropdownMenuItem onClick={() => changeStatus("cancelled")}>
+                    <XCircle className="size-4" /> Cancelar evento
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem
+                      onSelect={(e) => e.preventDefault()}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="size-4" /> Excluir evento
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir este evento?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Todos os convidados e check-ins deste evento também serão removidos. Essa ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={deleteEvent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>

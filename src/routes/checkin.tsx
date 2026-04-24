@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, MinusCircle, PlusCircle, ScanLine, Search, X } from "lucide-react";
+import { Check, Lock, MinusCircle, PlusCircle, ScanLine, Search, Unlock, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
@@ -72,7 +72,18 @@ function CheckinPage() {
   const [query, setQuery] = useState("");
   const [confirmGuest, setConfirmGuest] = useState<Guest | null>(null);
   const [confirmPeople, setConfirmPeople] = useState(1);
+  const [strictMode, setStrictMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem("checkin_strict_mode");
+    return v === null ? true : v === "true";
+  });
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("checkin_strict_mode", String(strictMode));
+    }
+  }, [strictMode]);
 
   // Load events
   useEffect(() => {
@@ -146,7 +157,12 @@ function CheckinPage() {
   function startCheckin(guest: Guest) {
     const remaining = guest.ticket_quantity - guest.checked_in_count;
     if (remaining <= 0) {
-      // Already fully checked in — confirm extra
+      if (strictMode) {
+        toast.error(
+          `${guest.full_name} já fez check-in completo (${guest.checked_in_count}/${guest.ticket_quantity}). Desative o modo estrito para permitir entrada extra.`,
+        );
+        return;
+      }
       setConfirmGuest(guest);
       setConfirmPeople(1);
       return;
@@ -157,6 +173,11 @@ function CheckinPage() {
 
   async function performCheckin() {
     if (!confirmGuest || !eventId || confirmPeople < 1) return;
+    const remaining = confirmGuest.ticket_quantity - confirmGuest.checked_in_count;
+    if (strictMode && confirmPeople > Math.max(remaining, 0)) {
+      toast.error(`Modo estrito: máximo ${Math.max(remaining, 0)} pessoa(s) restante(s).`);
+      return;
+    }
     const { error } = await supabase.from("checkins").insert({
       guest_id: confirmGuest.id,
       event_id: eventId,
@@ -202,18 +223,38 @@ function CheckinPage() {
             : ""
         }
         action={
-          <Select value={eventId} onValueChange={setEventId}>
-            <SelectTrigger className="w-[260px]">
-              <SelectValue placeholder="Selecionar evento" />
-            </SelectTrigger>
-            <SelectContent>
-              {events.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStrictMode((s) => !s)}
+              className={
+                "inline-flex items-center gap-1.5 px-3 h-10 rounded-lg border text-xs font-medium transition-colors " +
+                (strictMode
+                  ? "bg-primary/10 border-primary/40 text-primary"
+                  : "bg-warning/10 border-warning/40 text-warning")
+              }
+              title={
+                strictMode
+                  ? "Modo estrito: bloqueia entradas além dos ingressos"
+                  : "Modo flexível: permite entradas extras com confirmação"
+              }
+            >
+              {strictMode ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+              {strictMode ? "Estrito" : "Flexível"}
+            </button>
+            <Select value={eventId} onValueChange={setEventId}>
+              <SelectTrigger className="w-[260px]">
+                <SelectValue placeholder="Selecionar evento" />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         }
       />
 
@@ -364,7 +405,18 @@ function CheckinPage() {
                 variant="outline"
                 size="icon"
                 className="size-12 rounded-full"
-                onClick={() => setConfirmPeople(confirmPeople + 1)}
+                onClick={() => {
+                  if (!confirmGuest) return;
+                  const remaining = confirmGuest.ticket_quantity - confirmGuest.checked_in_count;
+                  const max = strictMode ? Math.max(remaining, 1) : 99;
+                  setConfirmPeople(Math.min(max, confirmPeople + 1));
+                }}
+                disabled={
+                  strictMode &&
+                  !!confirmGuest &&
+                  confirmPeople >=
+                    Math.max(confirmGuest.ticket_quantity - confirmGuest.checked_in_count, 1)
+                }
               >
                 <PlusCircle className="size-6" />
               </Button>
