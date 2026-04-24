@@ -5,14 +5,26 @@ import { ptBR } from "date-fns/locale";
 import {
   ArrowLeft,
   CalendarClock,
+  CheckCircle2,
   Download,
   MapPin,
+  MoreVertical,
+  RotateCcw,
   ScanLine,
   Trash2,
   Upload,
   UserPlus,
   Users,
+  XCircle,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
