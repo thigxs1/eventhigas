@@ -93,15 +93,17 @@ function DashboardPage() {
         totalTickets,
         totalCheckedIn,
         recentCheckins:
-          checkins?.map((c) => ({
-            id: c.id,
-            checked_in_at: c.checked_in_at,
-            people_count: c.people_count,
-            // @ts-expect-error nested join
-            guest_name: c.guest?.full_name ?? "—",
-            // @ts-expect-error nested join
-            event_name: c.event?.name ?? "—",
-          })) ?? [],
+          checkins?.map((c) => {
+            const guest = (c as { guest?: { full_name?: string } | null }).guest;
+            const event = (c as { event?: { name?: string } | null }).event;
+            return {
+              id: c.id,
+              checked_in_at: c.checked_in_at,
+              people_count: c.people_count,
+              guest_name: guest?.full_name ?? "—",
+              event_name: event?.name ?? "—",
+            };
+          }) ?? [],
         byTicketType: Array.from(typeMap.entries()).map(([type, v]) => ({
           type,
           ...v,
