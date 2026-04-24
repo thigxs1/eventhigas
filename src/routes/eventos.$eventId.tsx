@@ -355,20 +355,15 @@ function GuestsTable({
   const sortedGuests = useMemo(() => {
     const arr = [...guests];
     arr.sort((a, b) => {
-      const aId = a.id;
-      const bId = b.id;
       switch (sort) {
         case "az":
           return a.full_name.localeCompare(b.full_name, "pt-BR", { sensitivity: "base" });
         case "za":
           return b.full_name.localeCompare(a.full_name, "pt-BR", { sensitivity: "base" });
         case "recent":
-          // ids gerados por gen_random_uuid não têm ordem cronológica garantida,
-          // então usamos a ordem reversa do array original (que vem do banco por nome).
-          // Para "recentes" reais usamos a ordem reversa de inserção via id de string.
-          return bId.localeCompare(aId);
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case "old":
-          return aId.localeCompare(bId);
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       }
     });
     return arr;
