@@ -89,6 +89,28 @@ function EventDetailPage() {
   const [event, setEvent] = useState<EventRow | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("lista");
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      // Shift + P → abrir aba "Adicionar manual" e o diálogo de novo convidado
+      if (e.shiftKey && (e.key === "P" || e.key === "p")) {
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName;
+        const isTyping =
+          tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable;
+        if (isTyping) return;
+        e.preventDefault();
+        setActiveTab("adicionar");
+        toast.info("Adicionar pessoa", { description: "Atalho Shift + P" });
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("open-manual-guest"));
+        }, 60);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -270,11 +292,16 @@ function EventDetailPage() {
         <StatCard label="Pendentes" value={stats.pending} icon={Users} accent="warning" />
       </div>
 
-      <Tabs defaultValue="lista" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-surface">
           <TabsTrigger value="lista">Lista de convidados</TabsTrigger>
           <TabsTrigger value="importar">Importar planilha</TabsTrigger>
-          <TabsTrigger value="adicionar">Adicionar manual</TabsTrigger>
+          <TabsTrigger value="adicionar">
+            Adicionar manual
+            <kbd className="ml-2 hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+              ⇧P
+            </kbd>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="lista" className="mt-4">
@@ -566,6 +593,14 @@ function ManualGuestForm({ eventId, onCreated }: { eventId: string; onCreated: (
   const [qty, setQty] = useState("1");
   const [type, setType] = useState("pista");
   const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    function open() {
+      setOpen(true);
+    }
+    window.addEventListener("open-manual-guest", open);
+    return () => window.removeEventListener("open-manual-guest", open);
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
