@@ -93,7 +93,7 @@ function EventDetailPage() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      // Shift + P → abrir aba "Adicionar manual"
+      // Shift + P → abrir aba "Adicionar manual" e o diálogo de novo convidado
       if (e.shiftKey && (e.key === "P" || e.key === "p")) {
         const target = e.target as HTMLElement | null;
         const tag = target?.tagName;
@@ -103,11 +103,9 @@ function EventDetailPage() {
         e.preventDefault();
         setActiveTab("adicionar");
         toast.info("Adicionar pessoa", { description: "Atalho Shift + P" });
-        // Focar primeiro campo após renderizar a aba
         setTimeout(() => {
-          const el = document.querySelector<HTMLInputElement>("[data-manual-guest-first]");
-          el?.focus();
-        }, 80);
+          window.dispatchEvent(new CustomEvent("open-manual-guest"));
+        }, 60);
       }
     }
     window.addEventListener("keydown", onKey);
