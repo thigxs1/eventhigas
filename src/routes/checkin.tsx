@@ -223,18 +223,38 @@ function CheckinPage() {
             : ""
         }
         action={
-          <Select value={eventId} onValueChange={setEventId}>
-            <SelectTrigger className="w-[260px]">
-              <SelectValue placeholder="Selecionar evento" />
-            </SelectTrigger>
-            <SelectContent>
-              {events.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStrictMode((s) => !s)}
+              className={
+                "inline-flex items-center gap-1.5 px-3 h-10 rounded-lg border text-xs font-medium transition-colors " +
+                (strictMode
+                  ? "bg-primary/10 border-primary/40 text-primary"
+                  : "bg-warning/10 border-warning/40 text-warning")
+              }
+              title={
+                strictMode
+                  ? "Modo estrito: bloqueia entradas além dos ingressos"
+                  : "Modo flexível: permite entradas extras com confirmação"
+              }
+            >
+              {strictMode ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+              {strictMode ? "Estrito" : "Flexível"}
+            </button>
+            <Select value={eventId} onValueChange={setEventId}>
+              <SelectTrigger className="w-[260px]">
+                <SelectValue placeholder="Selecionar evento" />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         }
       />
 
