@@ -11,6 +11,7 @@ import {
   FileDown,
   MapPin,
   MoreVertical,
+  Pencil,
   RotateCcw,
   ScanLine,
   Trash2,
@@ -464,7 +465,12 @@ function GuestsTable({
             <tbody>
               {sortedGuests.map((g) => (
                 <tr key={g.id} className="border-t border-border hover:bg-surface/50">
-                  <td className="px-4 py-3 font-medium">{g.full_name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      <EditGuestDialog guest={g} onSaved={onChanged} />
+                      <span className="truncate">{g.full_name}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
                     {formatCPF(g.cpf)}
                   </td>
@@ -805,5 +811,133 @@ function ManualGuestForm({ eventId, onCreated }: { eventId: string; onCreated: (
         </Dialog>
       </div>
     </div>
+  );
+}
+
+function EditGuestDialog({ guest, onSaved }: { guest: Guest; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [name, setName] = useState(guest.full_name);
+  const [cpf, setCpf] = useState(guest.cpf ?? "");
+  const [phone, setPhone] = useState(guest.phone ?? "");
+  const [qty, setQty] = useState(String(guest.ticket_quantity));
+  const [type, setType] = useState(guest.ticket_type);
+  const [notes, setNotes] = useState(guest.notes ?? "");
+
+  useEffect(() => {
+    if (open) {
+      setName(guest.full_name);
+      setCpf(guest.cpf ?? "");
+      setPhone(guest.phone ?? "");
+      setQty(String(guest.ticket_quantity));
+      setType(guest.ticket_type);
+      setNotes(guest.notes ?? "");
+    }
+  }, [open, guest]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Nome obrigatório");
+      return;
+    }
+    const newQty = Math.max(1, Math.min(999, Number(qty) || 1));
+    if (newQty < guest.checked_in_count) {
+      toast.error(
+        `Quantidade não pode ser menor que ${guest.checked_in_count} (já feitos check-ins)`,
+      );
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase
+      .from("guests")
+      .update({
+        full_name: name.trim().slice(0, 200),
+        cpf: cpf.replace(/\D/g, "").slice(0, 11) || null,
+        phone: phone.replace(/\D/g, "").slice(0, 15) || null,
+        ticket_quantity: newQty,
+        ticket_type: type.trim().slice(0, 40) || "pista",
+        notes: notes.trim().slice(0, 500) || null,
+      })
+      .eq("id", guest.id);
+    setSubmitting(false);
+    if (error) {
+      toast.error("Erro ao salvar");
+      return;
+    }
+    toast.success("Convidado atualizado");
+    setOpen(false);
+    onSaved();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 shrink-0 text-muted-foreground hover:text-primary"
+          aria-label={`Editar ${guest.full_name}`}
+        >
+          <Pencil className="size-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <form onSubmit={submit}>
+          <DialogHeader>
+            <DialogTitle>Editar convidado</DialogTitle>
+            <DialogDescription>Atualize os dados deste convidado.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Nome completo *</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>CPF</Label>
+                <Input value={cpf} onChange={(e) => setCpf(e.target.value)} maxLength={14} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Telefone</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={15} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Quantidade</Label>
+                <Input
+                  type="number"
+                  min={Math.max(1, guest.checked_in_count)}
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                />
+                {guest.checked_in_count > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {guest.checked_in_count} já fizeram check-in
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label>Tipo</Label>
+                <Input value={type} onChange={(e) => setType(e.target.value)} maxLength={40} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Observações</Label>
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
