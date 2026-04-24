@@ -1,4 +1,5 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import type { ReactNode } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Calendar, LayoutDashboard, ScanLine, Sparkles, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +10,7 @@ const navItems = [
   { to: "/convidados", label: "Convidados", icon: Users, exact: false },
 ] as const;
 
-export function AppShell() {
+export function AppShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
 
   return (
@@ -98,7 +99,7 @@ export function AppShell() {
         </div>
 
         <div className="flex-1 min-w-0">
-          <Outlet />
+          {children}
         </div>
       </main>
     </div>
