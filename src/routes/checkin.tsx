@@ -72,7 +72,18 @@ function CheckinPage() {
   const [query, setQuery] = useState("");
   const [confirmGuest, setConfirmGuest] = useState<Guest | null>(null);
   const [confirmPeople, setConfirmPeople] = useState(1);
+  const [strictMode, setStrictMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem("checkin_strict_mode");
+    return v === null ? true : v === "true";
+  });
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("checkin_strict_mode", String(strictMode));
+    }
+  }, [strictMode]);
 
   // Load events
   useEffect(() => {
