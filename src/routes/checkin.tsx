@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, MinusCircle, PlusCircle, ScanLine, Search, X } from "lucide-react";
+import { Check, Lock, MinusCircle, PlusCircle, ScanLine, Search, Unlock, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
