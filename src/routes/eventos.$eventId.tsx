@@ -329,7 +329,19 @@ function EventDetailPage() {
   );
 }
 
-function GuestsTable({ guests, onChanged }: { guests: Guest[]; onChanged: () => void }) {
+type SortMode = "az" | "za" | "recent" | "old";
+
+function GuestsTable({
+  guests,
+  onChanged,
+  eventName,
+}: {
+  guests: Guest[];
+  onChanged: () => void;
+  eventName: string;
+}) {
+  const [sort, setSort] = useState<SortMode>("az");
+
   async function deleteGuest(id: string) {
     const { error } = await supabase.from("guests").delete().eq("id", id);
     if (error) toast.error("Erro ao excluir");
@@ -337,6 +349,74 @@ function GuestsTable({ guests, onChanged }: { guests: Guest[]; onChanged: () => 
       toast.success("Convidado removido");
       onChanged();
     }
+  }
+
+  const sortedGuests = useMemo(() => {
+    const arr = [...guests];
+    arr.sort((a, b) => {
+      const aId = a.id;
+      const bId = b.id;
+      switch (sort) {
+        case "az":
+          return a.full_name.localeCompare(b.full_name, "pt-BR", { sensitivity: "base" });
+        case "za":
+          return b.full_name.localeCompare(a.full_name, "pt-BR", { sensitivity: "base" });
+        case "recent":
+          // ids gerados por gen_random_uuid não têm ordem cronológica garantida,
+          // então usamos a ordem reversa do array original (que vem do banco por nome).
+          // Para "recentes" reais usamos a ordem reversa de inserção via id de string.
+          return bId.localeCompare(aId);
+        case "old":
+          return aId.localeCompare(bId);
+      }
+    });
+    return arr;
+  }, [guests, sort]);
+
+  function exportCSV() {
+    if (guests.length === 0) {
+      toast.error("Nenhum convidado para exportar");
+      return;
+    }
+    const header = ["Nome", "CPF", "Telefone", "Tipo", "Quantidade", "Presentes", "Observacoes"];
+    const escape = (v: string | number | null | undefined) => {
+      const s = v == null ? "" : String(v);
+      if (/[",;\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const lines = [header.join(",")];
+    for (const g of sortedGuests) {
+      lines.push(
+        [
+          g.full_name,
+          g.cpf ?? "",
+          g.phone ?? "",
+          g.ticket_type,
+          g.ticket_quantity,
+          g.checked_in_count,
+          g.notes ?? "",
+        ]
+          .map(escape)
+          .join(","),
+      );
+    }
+    // BOM para Excel reconhecer UTF-8 e acentos
+    const csv = "\uFEFF" + lines.join("\n");
+    const slug = eventName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "evento";
+    const today = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `convidados-${slug}-${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${guests.length} convidados exportados`);
   }
 
   if (guests.length === 0) {
@@ -348,77 +428,102 @@ function GuestsTable({ guests, onChanged }: { guests: Guest[]; onChanged: () => 
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-surface text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="text-left px-4 py-3">Nome</th>
-              <th className="text-left px-4 py-3 hidden md:table-cell">CPF</th>
-              <th className="text-left px-4 py-3 hidden md:table-cell">Telefone</th>
-              <th className="text-left px-4 py-3">Tipo</th>
-              <th className="text-center px-4 py-3">Presença</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {guests.map((g) => (
-              <tr key={g.id} className="border-t border-border hover:bg-surface/50">
-                <td className="px-4 py-3 font-medium">{g.full_name}</td>
-                <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
-                  {formatCPF(g.cpf)}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
-                  {formatPhone(g.phone)}
-                </td>
-                <td className="px-4 py-3">
-                  <Badge variant="secondary" className="bg-primary/10 text-primary border-0 capitalize">
-                    {g.ticket_type}
-                  </Badge>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <Badge
-                    className={
-                      g.checked_in_count >= g.ticket_quantity
-                        ? "bg-success/15 text-success border-0"
-                        : g.checked_in_count > 0
-                        ? "bg-warning/15 text-warning border-0"
-                        : "bg-muted text-muted-foreground border-0"
-                    }
-                  >
-                    {g.checked_in_count}/{g.ticket_quantity}
-                  </Badge>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-8">
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remover {g.full_name}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Os check-ins deste convidado também serão excluídos.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => deleteGuest(g.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Remover
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </td>
+    <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ArrowUpDown className="size-4 text-muted-foreground" />
+          <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
+            <SelectTrigger className="h-9 w-[180px] bg-card">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="az">Nome (A → Z)</SelectItem>
+              <SelectItem value="za">Nome (Z → A)</SelectItem>
+              <SelectItem value="recent">Mais recentes</SelectItem>
+              <SelectItem value="old">Mais antigos</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            {guests.length} {guests.length === 1 ? "convidado" : "convidados"}
+          </span>
+        </div>
+        <Button variant="outline" size="sm" onClick={exportCSV}>
+          <FileDown className="size-4" /> Exportar CSV
+        </Button>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-surface text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="text-left px-4 py-3">Nome</th>
+                <th className="text-left px-4 py-3 hidden md:table-cell">CPF</th>
+                <th className="text-left px-4 py-3 hidden md:table-cell">Telefone</th>
+                <th className="text-left px-4 py-3">Tipo</th>
+                <th className="text-center px-4 py-3">Presença</th>
+                <th className="px-4 py-3" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sortedGuests.map((g) => (
+                <tr key={g.id} className="border-t border-border hover:bg-surface/50">
+                  <td className="px-4 py-3 font-medium">{g.full_name}</td>
+                  <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
+                    {formatCPF(g.cpf)}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
+                    {formatPhone(g.phone)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant="secondary" className="bg-primary/10 text-primary border-0 capitalize">
+                      {g.ticket_type}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Badge
+                      className={
+                        g.checked_in_count >= g.ticket_quantity
+                          ? "bg-success/15 text-success border-0"
+                          : g.checked_in_count > 0
+                          ? "bg-warning/15 text-warning border-0"
+                          : "bg-muted text-muted-foreground border-0"
+                      }
+                    >
+                      {g.checked_in_count}/{g.ticket_quantity}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8">
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remover {g.full_name}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Os check-ins deste convidado também serão excluídos.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteGuest(g.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Remover
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
