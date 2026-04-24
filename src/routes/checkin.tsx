@@ -405,7 +405,18 @@ function CheckinPage() {
                 variant="outline"
                 size="icon"
                 className="size-12 rounded-full"
-                onClick={() => setConfirmPeople(confirmPeople + 1)}
+                onClick={() => {
+                  if (!confirmGuest) return;
+                  const remaining = confirmGuest.ticket_quantity - confirmGuest.checked_in_count;
+                  const max = strictMode ? Math.max(remaining, 1) : 99;
+                  setConfirmPeople(Math.min(max, confirmPeople + 1));
+                }}
+                disabled={
+                  strictMode &&
+                  !!confirmGuest &&
+                  confirmPeople >=
+                    Math.max(confirmGuest.ticket_quantity - confirmGuest.checked_in_count, 1)
+                }
               >
                 <PlusCircle className="size-6" />
               </Button>
