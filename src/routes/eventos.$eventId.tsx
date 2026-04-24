@@ -314,7 +314,7 @@ function EventDetailPage() {
         </TabsList>
 
         <TabsContent value="lista" className="mt-4">
-          <GuestsTable guests={guests} onChanged={load} />
+          <GuestsTable guests={guests} onChanged={load} eventName={event.name} />
         </TabsContent>
 
         <TabsContent value="importar" className="mt-4">
