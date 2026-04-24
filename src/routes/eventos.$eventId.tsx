@@ -11,6 +11,7 @@ import {
   FileDown,
   MapPin,
   MoreVertical,
+  Pencil,
   RotateCcw,
   ScanLine,
   Trash2,
