@@ -90,6 +90,7 @@ type Guest = {
   ticket_type: string;
   notes: string | null;
   checked_in_count: number;
+  created_at: string;
 };
 
 function EventDetailPage() {
