@@ -312,6 +312,12 @@ function CheckinPage() {
                         {g.phone && <span>{formatPhone(g.phone)}</span>}
                         <span className="capitalize">{g.ticket_type}</span>
                       </div>
+                      {g.notes && (
+                        <div className="mt-2 inline-flex items-start gap-1.5 rounded-md bg-warning/10 border border-warning/30 text-warning px-2 py-1 text-[11px] leading-snug max-w-full">
+                          <span className="font-semibold shrink-0">Obs:</span>
+                          <span className="break-words">{g.notes}</span>
+                        </div>
+                      )}
                     </div>
                     <Badge
                       className={
