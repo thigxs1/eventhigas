@@ -125,6 +125,20 @@ function EventDetailPage() {
     navigate({ to: "/eventos" });
   }
 
+  async function changeStatus(newStatus: "active" | "finished" | "cancelled") {
+    const { error } = await supabase
+      .from("events")
+      .update({ status: newStatus })
+      .eq("id", eventId);
+    if (error) {
+      toast.error("Erro ao atualizar status");
+      return;
+    }
+    const labels = { active: "reaberto", finished: "finalizado", cancelled: "cancelado" };
+    toast.success(`Evento ${labels[newStatus]}`);
+    load();
+  }
+
   if (loading) {
     return <div className="p-10 text-center text-muted-foreground">Carregando…</div>;
   }
