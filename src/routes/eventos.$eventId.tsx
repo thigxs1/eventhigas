@@ -4,9 +4,11 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   ArrowLeft,
+  ArrowUpDown,
   CalendarClock,
   CheckCircle2,
   Download,
+  FileDown,
   MapPin,
   MoreVertical,
   RotateCcw,
@@ -17,6 +19,13 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
