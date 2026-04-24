@@ -594,6 +594,14 @@ function ManualGuestForm({ eventId, onCreated }: { eventId: string; onCreated: (
   const [type, setType] = useState("pista");
   const [notes, setNotes] = useState("");
 
+  useEffect(() => {
+    function open() {
+      setOpen(true);
+    }
+    window.addEventListener("open-manual-guest", open);
+    return () => window.removeEventListener("open-manual-guest", open);
+  }, []);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
