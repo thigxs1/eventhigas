@@ -465,7 +465,12 @@ function GuestsTable({
             <tbody>
               {sortedGuests.map((g) => (
                 <tr key={g.id} className="border-t border-border hover:bg-surface/50">
-                  <td className="px-4 py-3 font-medium">{g.full_name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      <EditGuestDialog guest={g} onSaved={onChanged} />
+                      <span className="truncate">{g.full_name}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
                     {formatCPF(g.cpf)}
                   </td>
