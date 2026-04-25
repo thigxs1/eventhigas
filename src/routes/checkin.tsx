@@ -333,23 +333,58 @@ function CheckinPage() {
             )}
           </div>
 
+          {/* Status filter */}
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-surface border border-border w-fit">
+            {(["todos", "presentes", "pendentes"] as const).map((opt) => {
+              const count =
+                opt === "todos"
+                  ? guests.length
+                  : opt === "presentes"
+                  ? guests.filter((g) => g.checked_in_count > 0).length
+                  : guests.filter((g) => g.checked_in_count < g.ticket_quantity).length;
+              const active = statusFilter === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setStatusFilter(opt)}
+                  className={
+                    "px-3 h-8 rounded-md text-xs font-medium capitalize transition-colors " +
+                    (active
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  {opt} <span className="opacity-70 ml-1">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* Results */}
           <div className="space-y-2">
             {filtered.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
-                {query ? "Nenhum convidado encontrado." : "Comece digitando o nome do convidado."}
+                {query
+                  ? "Nenhum convidado encontrado."
+                  : statusFilter !== "todos"
+                  ? `Nenhum convidado em "${statusFilter}".`
+                  : "Comece digitando o nome do convidado."}
               </div>
             ) : (
               filtered.map((g) => {
                 const remaining = g.ticket_quantity - g.checked_in_count;
                 const fullyIn = remaining <= 0;
                 return (
-                  <button
+                  <div
                     key={g.id}
-                    onClick={() => startCheckin(g)}
-                    className="w-full text-left rounded-xl border border-border bg-card hover:border-primary/50 hover:bg-surface transition-[var(--transition-smooth)] p-4 flex items-center gap-4 group"
+                    className="w-full rounded-xl border border-border bg-card hover:border-primary/50 hover:bg-surface transition-[var(--transition-smooth)] p-4 flex items-center gap-3 group"
                   >
-                    <div className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => startCheckin(g)}
+                      className="flex-1 min-w-0 text-left"
+                    >
                       <div className="font-semibold truncate">{g.full_name}</div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-3">
                         {g.cpf && <span>{formatCPF(g.cpf)}</span>}
@@ -362,7 +397,7 @@ function CheckinPage() {
                           <span className="break-words">{g.notes}</span>
                         </div>
                       )}
-                    </div>
+                    </button>
                     <Badge
                       className={
                         fullyIn
@@ -374,17 +409,44 @@ function CheckinPage() {
                     >
                       {g.checked_in_count}/{g.ticket_quantity}
                     </Badge>
-                    <div
+                    {g.checked_in_count > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="size-9 text-warning hover:text-warning hover:bg-warning/10"
+                          title="Desfazer último check-in"
+                          onClick={() => setUndoTarget({ guest: g })}
+                        >
+                          <Undo2 className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="size-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          title="Zerar todos os check-ins deste convidado"
+                          onClick={() => setResetTarget(g)}
+                        >
+                          <RotateCcw className="size-4" />
+                        </Button>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => startCheckin(g)}
                       className={
                         "size-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 " +
                         (fullyIn
                           ? "bg-success/20 text-success"
                           : "bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[var(--shadow-glow)]")
                       }
+                      aria-label="Fazer check-in"
                     >
                       <Check className="size-6" />
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 );
               })
             )}
