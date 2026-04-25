@@ -138,18 +138,19 @@ function CheckinPage() {
 
   // Filter
   const filtered = useMemo(() => {
-    if (!query.trim()) return guests.slice(0, 50);
     const qNorm = normalizeText(query);
     const qDigits = onlyDigits(query);
-    return guests
-      .filter((g) => {
-        if (normalizeText(g.full_name).includes(qNorm)) return true;
-        if (qDigits.length >= 3 && g.cpf?.includes(qDigits)) return true;
-        if (qDigits.length >= 3 && g.phone?.includes(qDigits)) return true;
-        return false;
-      })
-      .slice(0, 50);
-  }, [guests, query]);
+    const base = guests.filter((g) => {
+      if (statusFilter === "presentes" && g.checked_in_count <= 0) return false;
+      if (statusFilter === "pendentes" && g.checked_in_count >= g.ticket_quantity) return false;
+      if (!query.trim()) return true;
+      if (normalizeText(g.full_name).includes(qNorm)) return true;
+      if (qDigits.length >= 3 && g.cpf?.includes(qDigits)) return true;
+      if (qDigits.length >= 3 && g.phone?.includes(qDigits)) return true;
+      return false;
+    });
+    return base.slice(0, 80);
+  }, [guests, query, statusFilter]);
 
   const stats = useMemo(() => {
     const total = guests.reduce((s, g) => s + g.ticket_quantity, 0);
