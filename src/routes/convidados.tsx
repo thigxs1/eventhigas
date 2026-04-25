@@ -35,19 +35,25 @@ function GuestsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
 
+  async function load() {
+    const { data } = await supabase
+      .from("guests")
+      .select(
+        "id,full_name,cpf,phone,ticket_quantity,ticket_type,checked_in_count,event_id,event:events(name,event_date)",
+      )
+      .order("full_name", { ascending: true })
+      .limit(2000);
+    setRows((data ?? []) as unknown as Row[]);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("guests")
-        .select(
-          "id,full_name,cpf,phone,ticket_quantity,ticket_type,checked_in_count,event_id,event:events(name,event_date)",
-        )
-        .order("full_name", { ascending: true })
-        .limit(2000);
-      setRows((data ?? []) as unknown as Row[]);
-      setLoading(false);
-    })();
+    load();
   }, []);
+
+  // Sincronismo entre dispositivos
+  useRealtimeSync("convidados-global", ["guests", "checkins"], load);
+
 
   const filtered = useMemo(() => {
     if (!query.trim()) return rows.slice(0, 200);
