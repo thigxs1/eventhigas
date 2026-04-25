@@ -70,8 +70,11 @@ function CheckinPage() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [recent, setRecent] = useState<RecentCheckin[]>([]);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"todos" | "presentes" | "pendentes">("todos");
   const [confirmGuest, setConfirmGuest] = useState<Guest | null>(null);
   const [confirmPeople, setConfirmPeople] = useState(1);
+  const [undoTarget, setUndoTarget] = useState<{ guest: Guest } | null>(null);
+  const [resetTarget, setResetTarget] = useState<Guest | null>(null);
   const [strictMode, setStrictMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = window.localStorage.getItem("checkin_strict_mode");
