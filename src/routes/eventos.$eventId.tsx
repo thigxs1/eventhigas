@@ -143,6 +143,20 @@ function EventDetailPage() {
     load();
   }, [eventId]);
 
+  // Sincronismo entre dispositivos: recarrega quando guests/checkins/events mudam
+  useRealtimeSync(`event-${eventId}-guests`, ["guests"], load, {
+    column: "event_id",
+    value: eventId,
+  });
+  useRealtimeSync(`event-${eventId}-checkins`, ["checkins"], load, {
+    column: "event_id",
+    value: eventId,
+  });
+  useRealtimeSync(`event-${eventId}-event`, ["events"], load, {
+    column: "id",
+    value: eventId,
+  });
+
   const stats = useMemo(() => {
     const total = guests.reduce((s, g) => s + g.ticket_quantity, 0);
     const present = guests.reduce((s, g) => s + g.checked_in_count, 0);
