@@ -69,6 +69,8 @@ function EventsPage() {
     load();
   }, []);
 
+  useRealtimeSync("events-list", ["events"], load);
+
   return (
     <div className="px-5 md:px-8 py-7 md:py-9 max-w-[1400px] mx-auto">
       <PageHeader
