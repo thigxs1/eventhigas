@@ -198,6 +198,46 @@ function CheckinPage() {
     reload();
   }
 
+  async function undoLastCheckin(guestId: string, guestName: string) {
+    if (!eventId) return;
+    const { data: last } = await supabase
+      .from("checkins")
+      .select("id,people_count")
+      .eq("guest_id", guestId)
+      .eq("event_id", eventId)
+      .order("checked_in_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!last) {
+      toast.error(`${guestName} não tem check-ins para desfazer.`);
+      return;
+    }
+    const { error } = await supabase.from("checkins").delete().eq("id", last.id);
+    if (error) {
+      toast.error("Erro ao desfazer check-in");
+      return;
+    }
+    toast.success(`Desfeito: ${guestName} (-${last.people_count})`);
+    setUndoTarget(null);
+    reload();
+  }
+
+  async function resetGuestCheckins(guest: Guest) {
+    if (!eventId) return;
+    const { error } = await supabase
+      .from("checkins")
+      .delete()
+      .eq("guest_id", guest.id)
+      .eq("event_id", eventId);
+    if (error) {
+      toast.error("Erro ao zerar check-ins");
+      return;
+    }
+    toast.success(`Check-ins zerados: ${guest.full_name}`);
+    setResetTarget(null);
+    reload();
+  }
+
   if (events.length === 0) {
     return (
       <div className="px-5 md:px-8 py-12 max-w-2xl mx-auto text-center">
