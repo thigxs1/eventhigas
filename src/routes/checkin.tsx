@@ -137,6 +137,20 @@ function CheckinPage() {
     inputRef.current?.focus();
   }, [eventId]);
 
+  // Sincronismo entre dispositivos
+  useRealtimeSync(
+    `checkin-${eventId}-guests`,
+    ["guests"],
+    reload,
+    eventId ? { column: "event_id", value: eventId } : undefined,
+  );
+  useRealtimeSync(
+    `checkin-${eventId}-checkins`,
+    ["checkins"],
+    reload,
+    eventId ? { column: "event_id", value: eventId } : undefined,
+  );
+
   // Filter
   const filtered = useMemo(() => {
     const qNorm = normalizeText(query);
