@@ -543,6 +543,53 @@ function CheckinPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Undo last check-in */}
+      <AlertDialog open={!!undoTarget} onOpenChange={(o) => !o && setUndoTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desfazer último check-in?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isto remove o último registro de entrada de{" "}
+              <strong>{undoTarget?.guest.full_name}</strong> ({undoTarget?.guest.checked_in_count}/
+              {undoTarget?.guest.ticket_quantity}). Use quando o check-in foi feito por engano.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                undoTarget && undoLastCheckin(undoTarget.guest.id, undoTarget.guest.full_name)
+              }
+            >
+              <Undo2 className="size-4" /> Desfazer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset all check-ins for guest */}
+      <AlertDialog open={!!resetTarget} onOpenChange={(o) => !o && setResetTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Zerar todos os check-ins?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove <strong>todos</strong> os check-ins de{" "}
+              <strong>{resetTarget?.full_name}</strong> ({resetTarget?.checked_in_count}/
+              {resetTarget?.ticket_quantity}). Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => resetTarget && resetGuestCheckins(resetTarget)}
+            >
+              <RotateCcw className="size-4" /> Zerar tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
