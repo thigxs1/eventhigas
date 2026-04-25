@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Lock, MinusCircle, PlusCircle, ScanLine, Search, Unlock, X } from "lucide-react";
+import { Check, Lock, MinusCircle, PlusCircle, RotateCcw, ScanLine, Search, Undo2, Unlock, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,8 +70,11 @@ function CheckinPage() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [recent, setRecent] = useState<RecentCheckin[]>([]);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"todos" | "presentes" | "pendentes">("todos");
   const [confirmGuest, setConfirmGuest] = useState<Guest | null>(null);
   const [confirmPeople, setConfirmPeople] = useState(1);
+  const [undoTarget, setUndoTarget] = useState<{ guest: Guest } | null>(null);
+  const [resetTarget, setResetTarget] = useState<Guest | null>(null);
   const [strictMode, setStrictMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = window.localStorage.getItem("checkin_strict_mode");
@@ -135,18 +138,19 @@ function CheckinPage() {
 
   // Filter
   const filtered = useMemo(() => {
-    if (!query.trim()) return guests.slice(0, 50);
     const qNorm = normalizeText(query);
     const qDigits = onlyDigits(query);
-    return guests
-      .filter((g) => {
-        if (normalizeText(g.full_name).includes(qNorm)) return true;
-        if (qDigits.length >= 3 && g.cpf?.includes(qDigits)) return true;
-        if (qDigits.length >= 3 && g.phone?.includes(qDigits)) return true;
-        return false;
-      })
-      .slice(0, 50);
-  }, [guests, query]);
+    const base = guests.filter((g) => {
+      if (statusFilter === "presentes" && g.checked_in_count <= 0) return false;
+      if (statusFilter === "pendentes" && g.checked_in_count >= g.ticket_quantity) return false;
+      if (!query.trim()) return true;
+      if (normalizeText(g.full_name).includes(qNorm)) return true;
+      if (qDigits.length >= 3 && g.cpf?.includes(qDigits)) return true;
+      if (qDigits.length >= 3 && g.phone?.includes(qDigits)) return true;
+      return false;
+    });
+    return base.slice(0, 80);
+  }, [guests, query, statusFilter]);
 
   const stats = useMemo(() => {
     const total = guests.reduce((s, g) => s + g.ticket_quantity, 0);
@@ -191,6 +195,46 @@ function CheckinPage() {
     setConfirmGuest(null);
     setQuery("");
     inputRef.current?.focus();
+    reload();
+  }
+
+  async function undoLastCheckin(guestId: string, guestName: string) {
+    if (!eventId) return;
+    const { data: last } = await supabase
+      .from("checkins")
+      .select("id,people_count")
+      .eq("guest_id", guestId)
+      .eq("event_id", eventId)
+      .order("checked_in_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!last) {
+      toast.error(`${guestName} não tem check-ins para desfazer.`);
+      return;
+    }
+    const { error } = await supabase.from("checkins").delete().eq("id", last.id);
+    if (error) {
+      toast.error("Erro ao desfazer check-in");
+      return;
+    }
+    toast.success(`Desfeito: ${guestName} (-${last.people_count})`);
+    setUndoTarget(null);
+    reload();
+  }
+
+  async function resetGuestCheckins(guest: Guest) {
+    if (!eventId) return;
+    const { error } = await supabase
+      .from("checkins")
+      .delete()
+      .eq("guest_id", guest.id)
+      .eq("event_id", eventId);
+    if (error) {
+      toast.error("Erro ao zerar check-ins");
+      return;
+    }
+    toast.success(`Check-ins zerados: ${guest.full_name}`);
+    setResetTarget(null);
     reload();
   }
 
@@ -289,23 +333,58 @@ function CheckinPage() {
             )}
           </div>
 
+          {/* Status filter */}
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-surface border border-border w-fit">
+            {(["todos", "presentes", "pendentes"] as const).map((opt) => {
+              const count =
+                opt === "todos"
+                  ? guests.length
+                  : opt === "presentes"
+                  ? guests.filter((g) => g.checked_in_count > 0).length
+                  : guests.filter((g) => g.checked_in_count < g.ticket_quantity).length;
+              const active = statusFilter === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setStatusFilter(opt)}
+                  className={
+                    "px-3 h-8 rounded-md text-xs font-medium capitalize transition-colors " +
+                    (active
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  {opt} <span className="opacity-70 ml-1">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* Results */}
           <div className="space-y-2">
             {filtered.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
-                {query ? "Nenhum convidado encontrado." : "Comece digitando o nome do convidado."}
+                {query
+                  ? "Nenhum convidado encontrado."
+                  : statusFilter !== "todos"
+                  ? `Nenhum convidado em "${statusFilter}".`
+                  : "Comece digitando o nome do convidado."}
               </div>
             ) : (
               filtered.map((g) => {
                 const remaining = g.ticket_quantity - g.checked_in_count;
                 const fullyIn = remaining <= 0;
                 return (
-                  <button
+                  <div
                     key={g.id}
-                    onClick={() => startCheckin(g)}
-                    className="w-full text-left rounded-xl border border-border bg-card hover:border-primary/50 hover:bg-surface transition-[var(--transition-smooth)] p-4 flex items-center gap-4 group"
+                    className="w-full rounded-xl border border-border bg-card hover:border-primary/50 hover:bg-surface transition-[var(--transition-smooth)] p-4 flex items-center gap-3 group"
                   >
-                    <div className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => startCheckin(g)}
+                      className="flex-1 min-w-0 text-left"
+                    >
                       <div className="font-semibold truncate">{g.full_name}</div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-3">
                         {g.cpf && <span>{formatCPF(g.cpf)}</span>}
@@ -318,7 +397,7 @@ function CheckinPage() {
                           <span className="break-words">{g.notes}</span>
                         </div>
                       )}
-                    </div>
+                    </button>
                     <Badge
                       className={
                         fullyIn
@@ -330,17 +409,44 @@ function CheckinPage() {
                     >
                       {g.checked_in_count}/{g.ticket_quantity}
                     </Badge>
-                    <div
+                    {g.checked_in_count > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="size-9 text-warning hover:text-warning hover:bg-warning/10"
+                          title="Desfazer último check-in"
+                          onClick={() => setUndoTarget({ guest: g })}
+                        >
+                          <Undo2 className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="size-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          title="Zerar todos os check-ins deste convidado"
+                          onClick={() => setResetTarget(g)}
+                        >
+                          <RotateCcw className="size-4" />
+                        </Button>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => startCheckin(g)}
                       className={
                         "size-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 " +
                         (fullyIn
                           ? "bg-success/20 text-success"
                           : "bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[var(--shadow-glow)]")
                       }
+                      aria-label="Fazer check-in"
                     >
                       <Check className="size-6" />
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 );
               })
             )}
@@ -433,6 +539,53 @@ function CheckinPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={performCheckin}>
               <Check className="size-4" /> Confirmar entrada
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Undo last check-in */}
+      <AlertDialog open={!!undoTarget} onOpenChange={(o) => !o && setUndoTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desfazer último check-in?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isto remove o último registro de entrada de{" "}
+              <strong>{undoTarget?.guest.full_name}</strong> ({undoTarget?.guest.checked_in_count}/
+              {undoTarget?.guest.ticket_quantity}). Use quando o check-in foi feito por engano.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                undoTarget && undoLastCheckin(undoTarget.guest.id, undoTarget.guest.full_name)
+              }
+            >
+              <Undo2 className="size-4" /> Desfazer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset all check-ins for guest */}
+      <AlertDialog open={!!resetTarget} onOpenChange={(o) => !o && setResetTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Zerar todos os check-ins?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove <strong>todos</strong> os check-ins de{" "}
+              <strong>{resetTarget?.full_name}</strong> ({resetTarget?.checked_in_count}/
+              {resetTarget?.ticket_quantity}). Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => resetTarget && resetGuestCheckins(resetTarget)}
+            >
+              <RotateCcw className="size-4" /> Zerar tudo
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
