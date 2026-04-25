@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -141,6 +142,20 @@ function EventDetailPage() {
   useEffect(() => {
     load();
   }, [eventId]);
+
+  // Sincronismo entre dispositivos: recarrega quando guests/checkins/events mudam
+  useRealtimeSync(`event-${eventId}-guests`, ["guests"], load, {
+    column: "event_id",
+    value: eventId,
+  });
+  useRealtimeSync(`event-${eventId}-checkins`, ["checkins"], load, {
+    column: "event_id",
+    value: eventId,
+  });
+  useRealtimeSync(`event-${eventId}-event`, ["events"], load, {
+    column: "id",
+    value: eventId,
+  });
 
   const stats = useMemo(() => {
     const total = guests.reduce((s, g) => s + g.ticket_quantity, 0);

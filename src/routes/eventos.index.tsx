@@ -5,6 +5,7 @@ import { ptBR } from "date-fns/locale";
 import { CalendarPlus, MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,8 @@ function EventsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useRealtimeSync("events-list", ["events"], load);
 
   return (
     <div className="px-5 md:px-8 py-7 md:py-9 max-w-[1400px] mx-auto">

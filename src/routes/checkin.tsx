@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -135,6 +136,20 @@ function CheckinPage() {
     reload();
     inputRef.current?.focus();
   }, [eventId]);
+
+  // Sincronismo entre dispositivos
+  useRealtimeSync(
+    `checkin-${eventId}-guests`,
+    ["guests"],
+    reload,
+    eventId ? { column: "event_id", value: eventId } : undefined,
+  );
+  useRealtimeSync(
+    `checkin-${eventId}-checkins`,
+    ["checkins"],
+    reload,
+    eventId ? { column: "event_id", value: eventId } : undefined,
+  );
 
   // Filter
   const filtered = useMemo(() => {
