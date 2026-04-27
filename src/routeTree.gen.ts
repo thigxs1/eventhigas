@@ -15,6 +15,7 @@ import { Route as CheckinRouteImport } from './routes/checkin'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EventosIndexRouteImport } from './routes/eventos.index'
+import { Route as InscreverEventIdRouteImport } from './routes/inscrever.$eventId'
 import { Route as EventosEventIdRouteImport } from './routes/eventos.$eventId'
 import { Route as EventosEventIdDashboardRouteImport } from './routes/eventos.$eventId.dashboard'
 
@@ -48,6 +49,11 @@ const EventosIndexRoute = EventosIndexRouteImport.update({
   path: '/eventos/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InscreverEventIdRoute = InscreverEventIdRouteImport.update({
+  id: '/inscrever/$eventId',
+  path: '/inscrever/$eventId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EventosEventIdRoute = EventosEventIdRouteImport.update({
   id: '/eventos/$eventId',
   path: '/eventos/$eventId',
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/convidados': typeof ConvidadosRoute
   '/login': typeof LoginRoute
   '/eventos/$eventId': typeof EventosEventIdRouteWithChildren
+  '/inscrever/$eventId': typeof InscreverEventIdRoute
   '/eventos/': typeof EventosIndexRoute
   '/eventos/$eventId/dashboard': typeof EventosEventIdDashboardRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/convidados': typeof ConvidadosRoute
   '/login': typeof LoginRoute
   '/eventos/$eventId': typeof EventosEventIdRouteWithChildren
+  '/inscrever/$eventId': typeof InscreverEventIdRoute
   '/eventos': typeof EventosIndexRoute
   '/eventos/$eventId/dashboard': typeof EventosEventIdDashboardRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/convidados': typeof ConvidadosRoute
   '/login': typeof LoginRoute
   '/eventos/$eventId': typeof EventosEventIdRouteWithChildren
+  '/inscrever/$eventId': typeof InscreverEventIdRoute
   '/eventos/': typeof EventosIndexRoute
   '/eventos/$eventId/dashboard': typeof EventosEventIdDashboardRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/convidados'
     | '/login'
     | '/eventos/$eventId'
+    | '/inscrever/$eventId'
     | '/eventos/'
     | '/eventos/$eventId/dashboard'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/convidados'
     | '/login'
     | '/eventos/$eventId'
+    | '/inscrever/$eventId'
     | '/eventos'
     | '/eventos/$eventId/dashboard'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/convidados'
     | '/login'
     | '/eventos/$eventId'
+    | '/inscrever/$eventId'
     | '/eventos/'
     | '/eventos/$eventId/dashboard'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   ConvidadosRoute: typeof ConvidadosRoute
   LoginRoute: typeof LoginRoute
   EventosEventIdRoute: typeof EventosEventIdRouteWithChildren
+  InscreverEventIdRoute: typeof InscreverEventIdRoute
   EventosIndexRoute: typeof EventosIndexRoute
 }
 
@@ -177,6 +190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inscrever/$eventId': {
+      id: '/inscrever/$eventId'
+      path: '/inscrever/$eventId'
+      fullPath: '/inscrever/$eventId'
+      preLoaderRoute: typeof InscreverEventIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/eventos/$eventId': {
       id: '/eventos/$eventId'
       path: '/eventos/$eventId'
@@ -213,6 +233,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConvidadosRoute: ConvidadosRoute,
   LoginRoute: LoginRoute,
   EventosEventIdRoute: EventosEventIdRouteWithChildren,
+  InscreverEventIdRoute: InscreverEventIdRoute,
   EventosIndexRoute: EventosIndexRoute,
 }
 export const routeTree = rootRouteImport

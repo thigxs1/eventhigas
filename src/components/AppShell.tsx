@@ -29,15 +29,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   const isLoginRoute = location.pathname === "/login";
+  const isPublicRoute = isLoginRoute || location.pathname.startsWith("/inscrever");
 
-  // Redireciona para login se não autenticado (exceto na própria rota /login)
+  // Redireciona para login se não autenticado (exceto rotas públicas)
   useEffect(() => {
-    if (!loading && !user && !isLoginRoute) {
+    if (!loading && !user && !isPublicRoute) {
       navigate({ to: "/login" });
     }
-  }, [loading, user, isLoginRoute, navigate]);
+  }, [loading, user, isPublicRoute, navigate]);
 
-  if (isLoginRoute) {
+  if (isPublicRoute) {
     return <>{children}</>;
   }
 
