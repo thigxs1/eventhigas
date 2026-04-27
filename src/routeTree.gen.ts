@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ConvidadosRouteImport } from './routes/convidados'
 import { Route as CheckinRouteImport } from './routes/checkin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EventosIndexRouteImport } from './routes/eventos.index'
 import { Route as EventosEventIdRouteImport } from './routes/eventos.$eventId'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConvidadosRoute = ConvidadosRouteImport.update({
   id: '/convidados',
   path: '/convidados',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/checkin': typeof CheckinRoute
   '/convidados': typeof ConvidadosRoute
+  '/login': typeof LoginRoute
   '/eventos/$eventId': typeof EventosEventIdRoute
   '/eventos/': typeof EventosIndexRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/checkin': typeof CheckinRoute
   '/convidados': typeof ConvidadosRoute
+  '/login': typeof LoginRoute
   '/eventos/$eventId': typeof EventosEventIdRoute
   '/eventos': typeof EventosIndexRoute
 }
@@ -60,6 +68,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/checkin': typeof CheckinRoute
   '/convidados': typeof ConvidadosRoute
+  '/login': typeof LoginRoute
   '/eventos/$eventId': typeof EventosEventIdRoute
   '/eventos/': typeof EventosIndexRoute
 }
@@ -69,15 +78,23 @@ export interface FileRouteTypes {
     | '/'
     | '/checkin'
     | '/convidados'
+    | '/login'
     | '/eventos/$eventId'
     | '/eventos/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/checkin' | '/convidados' | '/eventos/$eventId' | '/eventos'
+  to:
+    | '/'
+    | '/checkin'
+    | '/convidados'
+    | '/login'
+    | '/eventos/$eventId'
+    | '/eventos'
   id:
     | '__root__'
     | '/'
     | '/checkin'
     | '/convidados'
+    | '/login'
     | '/eventos/$eventId'
     | '/eventos/'
   fileRoutesById: FileRoutesById
@@ -86,12 +103,20 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CheckinRoute: typeof CheckinRoute
   ConvidadosRoute: typeof ConvidadosRoute
+  LoginRoute: typeof LoginRoute
   EventosEventIdRoute: typeof EventosEventIdRoute
   EventosIndexRoute: typeof EventosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/convidados': {
       id: '/convidados'
       path: '/convidados'
@@ -134,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CheckinRoute: CheckinRoute,
   ConvidadosRoute: ConvidadosRoute,
+  LoginRoute: LoginRoute,
   EventosEventIdRoute: EventosEventIdRoute,
   EventosIndexRoute: EventosIndexRoute,
 }
