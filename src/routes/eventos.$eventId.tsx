@@ -252,6 +252,11 @@ function EventDetailPage() {
             )}
           </div>
           <div className="flex gap-2 shrink-0">
+            <Link to="/eventos/$eventId/dashboard" params={{ eventId }}>
+              <Button variant="outline">
+                <CalendarClock className="size-4" /> Dashboard
+              </Button>
+            </Link>
             <Link to="/checkin" search={{ eventId }}>
               <Button>
                 <ScanLine className="size-4" /> Check-in
