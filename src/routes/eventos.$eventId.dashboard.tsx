@@ -59,12 +59,9 @@ function EventDashboard() {
     load();
   }, [eventId]);
 
-  useRealtimeSync({
-    tables: [
-      { table: "guests", filter: { column: "event_id", value: eventId } },
-      { table: "checkins", filter: { column: "event_id", value: eventId } },
-    ],
-    onChange: load,
+  useRealtimeSync(`event-dashboard-${eventId}`, ["guests", "checkins"], load, {
+    column: "event_id",
+    value: eventId,
   });
 
   const totalGuests = guests.length;
