@@ -1,30 +1,34 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/hooks/useAuth";
+import { SystemSettingsProvider } from "@/hooks/useSystemSettings";
 
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
   return (
-    <AppShell>
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="max-w-md text-center">
-          <h1 className="text-7xl font-display font-bold text-foreground">404</h1>
-          <h2 className="mt-4 text-xl font-semibold text-foreground">Página não encontrada</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            O endereço que você acessou não existe.
-          </p>
-          <div className="mt-6">
-            <Link
-              to="/"
-              className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              Voltar ao início
-            </Link>
+    <Providers>
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center px-4">
+          <div className="max-w-md text-center">
+            <h1 className="text-7xl font-display font-bold text-foreground">404</h1>
+            <h2 className="mt-4 text-xl font-semibold text-foreground">Página não encontrada</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              O endereço que você acessou não existe.
+            </p>
+            <div className="mt-6">
+              <Link
+                to="/"
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Voltar ao início
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
-    </AppShell>
+      </AppShell>
+    </Providers>
   );
 }
 
@@ -61,6 +65,14 @@ export const Route = createRootRoute({
   notFoundComponent: NotFoundComponent,
 });
 
+function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <SystemSettingsProvider>
+      <AuthProvider>{children}</AuthProvider>
+    </SystemSettingsProvider>
+  );
+}
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className="dark">
@@ -78,8 +90,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   return (
-    <AppShell>
-      <Outlet />
-    </AppShell>
+    <Providers>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </Providers>
   );
 }
