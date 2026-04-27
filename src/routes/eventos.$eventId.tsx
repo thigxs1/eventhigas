@@ -6,9 +6,13 @@ import {
   ArrowLeft,
   ArrowUpDown,
   CalendarClock,
+  Check,
   CheckCircle2,
+  Copy,
   Download,
+  ExternalLink,
   FileDown,
+  Link2,
   MapPin,
   MoreVertical,
   Pencil,
@@ -16,10 +20,13 @@ import {
   ScanLine,
   Trash2,
   Upload,
+  UserCheck,
   UserPlus,
   Users,
+  X,
   XCircle,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -82,6 +89,8 @@ type EventRow = {
   location: string | null;
   description: string | null;
   status: string;
+  public_signup_enabled: boolean;
+  public_signup_requires_approval: boolean;
 };
 type Guest = {
   id: string;
@@ -93,6 +102,9 @@ type Guest = {
   notes: string | null;
   checked_in_count: number;
   created_at: string;
+  status: "approved" | "pending" | "rejected";
+  source: "manual" | "import" | "public_form";
+  email: string | null;
 };
 
 function EventDetailPage() {
