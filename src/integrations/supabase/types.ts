@@ -65,6 +65,8 @@ export type Database = {
           id: string
           location: string | null
           name: string
+          public_signup_enabled: boolean
+          public_signup_requires_approval: boolean
           status: string
           updated_at: string
         }
@@ -76,6 +78,8 @@ export type Database = {
           id?: string
           location?: string | null
           name: string
+          public_signup_enabled?: boolean
+          public_signup_requires_approval?: boolean
           status?: string
           updated_at?: string
         }
@@ -87,6 +91,8 @@ export type Database = {
           id?: string
           location?: string | null
           name?: string
+          public_signup_enabled?: boolean
+          public_signup_requires_approval?: boolean
           status?: string
           updated_at?: string
         }
@@ -97,11 +103,14 @@ export type Database = {
           checked_in_count: number
           cpf: string | null
           created_at: string
+          email: string | null
           event_id: string
           full_name: string
           id: string
           notes: string | null
           phone: string | null
+          source: Database["public"]["Enums"]["guest_source"]
+          status: Database["public"]["Enums"]["guest_status"]
           ticket_quantity: number
           ticket_type: string
           updated_at: string
@@ -110,11 +119,14 @@ export type Database = {
           checked_in_count?: number
           cpf?: string | null
           created_at?: string
+          email?: string | null
           event_id: string
           full_name: string
           id?: string
           notes?: string | null
           phone?: string | null
+          source?: Database["public"]["Enums"]["guest_source"]
+          status?: Database["public"]["Enums"]["guest_status"]
           ticket_quantity?: number
           ticket_type?: string
           updated_at?: string
@@ -123,11 +135,14 @@ export type Database = {
           checked_in_count?: number
           cpf?: string | null
           created_at?: string
+          email?: string | null
           event_id?: string
           full_name?: string
           id?: string
           notes?: string | null
           phone?: string | null
+          source?: Database["public"]["Enums"]["guest_source"]
+          status?: Database["public"]["Enums"]["guest_status"]
           ticket_quantity?: number
           ticket_type?: string
           updated_at?: string
@@ -270,6 +285,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "operator"
+      guest_source: "manual" | "import" | "public_form"
+      guest_status: "approved" | "pending" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -398,6 +415,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "operator"],
+      guest_source: ["manual", "import", "public_form"],
+      guest_status: ["approved", "pending", "rejected"],
     },
   },
 } as const

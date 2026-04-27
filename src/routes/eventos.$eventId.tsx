@@ -6,9 +6,13 @@ import {
   ArrowLeft,
   ArrowUpDown,
   CalendarClock,
+  Check,
   CheckCircle2,
+  Copy,
   Download,
+  ExternalLink,
   FileDown,
+  Link2,
   MapPin,
   MoreVertical,
   Pencil,
@@ -16,10 +20,13 @@ import {
   ScanLine,
   Trash2,
   Upload,
+  UserCheck,
   UserPlus,
   Users,
+  X,
   XCircle,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -82,6 +89,8 @@ type EventRow = {
   location: string | null;
   description: string | null;
   status: string;
+  public_signup_enabled: boolean;
+  public_signup_requires_approval: boolean;
 };
 type Guest = {
   id: string;
@@ -93,6 +102,9 @@ type Guest = {
   notes: string | null;
   checked_in_count: number;
   created_at: string;
+  status: "approved" | "pending" | "rejected";
+  source: "manual" | "import" | "public_form";
+  email: string | null;
 };
 
 function EventDetailPage() {
@@ -157,11 +169,14 @@ function EventDetailPage() {
     value: eventId,
   });
 
+  const approvedGuests = useMemo(() => guests.filter((g) => g.status === "approved"), [guests]);
+  const pendingGuests = useMemo(() => guests.filter((g) => g.status === "pending"), [guests]);
+
   const stats = useMemo(() => {
-    const total = guests.reduce((s, g) => s + g.ticket_quantity, 0);
-    const present = guests.reduce((s, g) => s + g.checked_in_count, 0);
-    return { total, present, pending: total - present, count: guests.length };
-  }, [guests]);
+    const total = approvedGuests.reduce((s, g) => s + g.ticket_quantity, 0);
+    const present = approvedGuests.reduce((s, g) => s + g.checked_in_count, 0);
+    return { total, present, pending: total - present, count: approvedGuests.length };
+  }, [approvedGuests]);
 
   async function deleteEvent() {
     const { error } = await supabase.from("events").delete().eq("id", eventId);
@@ -324,8 +339,16 @@ function EventDetailPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-surface">
+        <TabsList className="bg-surface flex-wrap h-auto">
           <TabsTrigger value="lista">Lista de convidados</TabsTrigger>
+          <TabsTrigger value="inscricoes">
+            Inscrições
+            {pendingGuests.length > 0 && (
+              <Badge className="ml-2 bg-warning/20 text-warning border-0 px-1.5 py-0 text-[10px]">
+                {pendingGuests.length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="importar">Importar planilha</TabsTrigger>
           <TabsTrigger value="adicionar">
             Adicionar manual
@@ -336,7 +359,11 @@ function EventDetailPage() {
         </TabsList>
 
         <TabsContent value="lista" className="mt-4">
-          <GuestsTable guests={guests} onChanged={load} eventName={event.name} />
+          <GuestsTable guests={approvedGuests} onChanged={load} eventName={event.name} />
+        </TabsContent>
+
+        <TabsContent value="inscricoes" className="mt-4">
+          <PublicSignupPanel event={event} pending={pendingGuests} onChanged={load} />
         </TabsContent>
 
         <TabsContent value="importar" className="mt-4">
@@ -959,5 +986,258 @@ function EditGuestDialog({ guest, onSaved }: { guest: Guest; onSaved: () => void
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PublicSignupPanel({
+  event,
+  pending,
+  onChanged,
+}: {
+  event: EventRow;
+  pending: Guest[];
+  onChanged: () => void;
+}) {
+  const [enabled, setEnabled] = useState(event.public_signup_enabled);
+  const [requiresApproval, setRequiresApproval] = useState(event.public_signup_requires_approval);
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setEnabled(event.public_signup_enabled);
+    setRequiresApproval(event.public_signup_requires_approval);
+  }, [event.public_signup_enabled, event.public_signup_requires_approval]);
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const publicUrl = `${origin}/inscrever/${event.id}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(publicUrl)}`;
+
+  async function saveSettings(next: { enabled?: boolean; requiresApproval?: boolean }) {
+    const newEnabled = next.enabled ?? enabled;
+    const newApproval = next.requiresApproval ?? requiresApproval;
+    setSaving(true);
+    const { error } = await supabase
+      .from("events")
+      .update({
+        public_signup_enabled: newEnabled,
+        public_signup_requires_approval: newApproval,
+      })
+      .eq("id", event.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Não foi possível salvar");
+      return;
+    }
+    setEnabled(newEnabled);
+    setRequiresApproval(newApproval);
+    onChanged();
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+      toast.success("Link copiado");
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
+  }
+
+  async function approveGuest(id: string) {
+    const { error } = await supabase.from("guests").update({ status: "approved" }).eq("id", id);
+    if (error) toast.error("Erro ao aprovar");
+    else {
+      toast.success("Inscrição aprovada");
+      onChanged();
+    }
+  }
+
+  async function rejectGuest(id: string) {
+    const { error } = await supabase.from("guests").delete().eq("id", id);
+    if (error) toast.error("Erro ao rejeitar");
+    else {
+      toast.success("Inscrição rejeitada");
+      onChanged();
+    }
+  }
+
+  async function approveAll() {
+    if (pending.length === 0) return;
+    const { error } = await supabase
+      .from("guests")
+      .update({ status: "approved" })
+      .in("id", pending.map((g) => g.id));
+    if (error) toast.error("Erro ao aprovar todos");
+    else {
+      toast.success(`${pending.length} inscrições aprovadas`);
+      onChanged();
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <h3 className="font-display font-semibold text-lg flex items-center gap-2">
+              <Link2 className="size-4 text-primary" /> Inscrição pública via formulário
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Compartilhe o link/QR com seus convidados para que se inscrevam na lista VIP.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={enabled}
+              disabled={saving}
+              onCheckedChange={(v) => saveSettings({ enabled: v })}
+              id="signup-enabled"
+            />
+            <Label htmlFor="signup-enabled" className="text-sm">
+              {enabled ? "Ativa" : "Inativa"}
+            </Label>
+          </div>
+        </div>
+
+        {enabled ? (
+          <div className="grid md:grid-cols-[1fr_auto] gap-6 items-start">
+            <div className="space-y-4 min-w-0">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Link público</Label>
+                <div className="mt-1.5 flex gap-2">
+                  <Input readOnly value={publicUrl} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                  <Button type="button" variant="outline" onClick={copyLink}>
+                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copied ? "Copiado" : "Copiar"}
+                  </Button>
+                  <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                    <Button type="button" variant="outline" size="icon" aria-label="Abrir">
+                      <ExternalLink className="size-4" />
+                    </Button>
+                  </a>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-medium text-sm">Exigir aprovação do admin</div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Quando ativo, novas inscrições ficam pendentes até você aprovar aqui. Quando desativado, entram direto na lista de convidados.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={requiresApproval}
+                    disabled={saving}
+                    onCheckedChange={(v) => saveSettings({ requiresApproval: v })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <img
+                src={qrUrl}
+                alt="QR Code para inscrição"
+                width={200}
+                height={200}
+                className="rounded-xl border border-border bg-white p-2"
+              />
+              <a
+                href={qrUrl}
+                download={`qr-inscricao-${event.id}.png`}
+                className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+              >
+                <Download className="size-3" /> Baixar QR
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Ative para gerar o link público e o QR Code de inscrição.
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h4 className="font-semibold flex items-center gap-2">
+              <UserCheck className="size-4 text-warning" /> Inscrições pendentes
+            </h4>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {pending.length === 0
+                ? "Nenhuma inscrição aguardando aprovação."
+                : `${pending.length} aguardando sua aprovação.`}
+            </p>
+          </div>
+          {pending.length > 0 && (
+            <Button size="sm" variant="outline" onClick={approveAll}>
+              <Check className="size-4" /> Aprovar todas
+            </Button>
+          )}
+        </div>
+
+        {pending.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface text-xs uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="text-left px-4 py-3">Nome</th>
+                  <th className="text-left px-4 py-3 hidden md:table-cell">Contato</th>
+                  <th className="text-left px-4 py-3">Tipo</th>
+                  <th className="text-center px-4 py-3">Qtd</th>
+                  <th className="text-right px-4 py-3">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pending.map((g) => (
+                  <tr key={g.id} className="border-t border-border hover:bg-surface/50">
+                    <td className="px-4 py-3 font-medium">
+                      <div className="truncate">{g.full_name}</div>
+                      {g.notes && (
+                        <div className="text-xs text-muted-foreground truncate max-w-xs">{g.notes}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell text-xs">
+                      {g.email && <div>{g.email}</div>}
+                      {g.phone && <div>{formatPhone(g.phone)}</div>}
+                      {g.cpf && <div>{formatCPF(g.cpf)}</div>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary border-0 capitalize">
+                        {g.ticket_type}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">{g.ticket_quantity}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-success/40 text-success hover:bg-success/10 hover:text-success"
+                          onClick={() => approveGuest(g.id)}
+                        >
+                          <Check className="size-3.5" /> Aprovar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => rejectGuest(g.id)}
+                        >
+                          <X className="size-3.5" /> Rejeitar
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
