@@ -169,11 +169,14 @@ function EventDetailPage() {
     value: eventId,
   });
 
+  const approvedGuests = useMemo(() => guests.filter((g) => g.status === "approved"), [guests]);
+  const pendingGuests = useMemo(() => guests.filter((g) => g.status === "pending"), [guests]);
+
   const stats = useMemo(() => {
-    const total = guests.reduce((s, g) => s + g.ticket_quantity, 0);
-    const present = guests.reduce((s, g) => s + g.checked_in_count, 0);
-    return { total, present, pending: total - present, count: guests.length };
-  }, [guests]);
+    const total = approvedGuests.reduce((s, g) => s + g.ticket_quantity, 0);
+    const present = approvedGuests.reduce((s, g) => s + g.checked_in_count, 0);
+    return { total, present, pending: total - present, count: approvedGuests.length };
+  }, [approvedGuests]);
 
   async function deleteEvent() {
     const { error } = await supabase.from("events").delete().eq("id", eventId);
@@ -336,8 +339,16 @@ function EventDetailPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-surface">
+        <TabsList className="bg-surface flex-wrap h-auto">
           <TabsTrigger value="lista">Lista de convidados</TabsTrigger>
+          <TabsTrigger value="inscricoes">
+            Inscrições
+            {pendingGuests.length > 0 && (
+              <Badge className="ml-2 bg-warning/20 text-warning border-0 px-1.5 py-0 text-[10px]">
+                {pendingGuests.length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="importar">Importar planilha</TabsTrigger>
           <TabsTrigger value="adicionar">
             Adicionar manual
@@ -348,7 +359,11 @@ function EventDetailPage() {
         </TabsList>
 
         <TabsContent value="lista" className="mt-4">
-          <GuestsTable guests={guests} onChanged={load} eventName={event.name} />
+          <GuestsTable guests={approvedGuests} onChanged={load} eventName={event.name} />
+        </TabsContent>
+
+        <TabsContent value="inscricoes" className="mt-4">
+          <PublicSignupPanel event={event} pending={pendingGuests} onChanged={load} />
         </TabsContent>
 
         <TabsContent value="importar" className="mt-4">
