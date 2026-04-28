@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
-import { THEMES, type ThemeId } from "@/lib/themes";
+import { THEMES, applyTheme, type ThemeId } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -203,7 +203,10 @@ function AdminPage() {
           </div>
           <div className="space-y-2">
             <Label>Tema visual</Label>
-            <Select value={theme} onValueChange={(v) => setTheme(v as ThemeId)}>
+            <Select value={theme} onValueChange={(v) => {
+              setTheme(v as ThemeId);
+              applyTheme(v);
+            }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
