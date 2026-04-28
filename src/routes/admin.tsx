@@ -346,24 +346,30 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
       return;
     }
     setSubmitting(true);
-    // Cria via signUp — auto-confirm está habilitado
+
+    // Usa Edge Function com service role key — sem envio de e-mail, sem rate limit
     const cleanEmail = email.trim().toLowerCase();
-    const { data, error } = await supabase.auth.signUp({
-      email: cleanEmail,
-      password,
-      options: { data: { display_name: name } },
-    });
-    if (error || !data.user) {
-      setSubmitting(false);
-      toast.error(error?.message ?? "Falha ao criar usuário");
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ email: cleanEmail, password, name, role }),
+      }
+    );
+    const json = await res.json();
+    setSubmitting(false);
+
+    if (!res.ok) {
+      toast.error(json.error ?? "Falha ao criar usuário");
       return;
     }
-    // Atribuir papel
-    await supabase.from("user_roles").insert({ user_id: data.user.id, role });
-    // garantir display_name
-    await supabase.from("profiles").update({ display_name: name }).eq("id", data.user.id);
-    setSubmitting(false);
-    toast.success("Usuário criado");
+    toast.success("Usuário criado com sucesso!");
     setOpen(false);
     setName("");
     setEmail("");
