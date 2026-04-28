@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 import {
   ArrowLeft,
   ArrowUpDown,
