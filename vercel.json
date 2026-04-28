@@ -5,18 +5,8 @@
   "outputDirectory": "dist/client",
   "rewrites": [
     {
-      "source": "/assets/(.*)",
-      "destination": "/assets/$1"
-    },
-    {
       "source": "/(.*)",
       "destination": "/api/index.mjs"
     }
-  ],
-  "functions": {
-    "api/index.mjs": {
-      "runtime": "nodejs22.x",
-      "memory": 1024
-    }
-  }
+  ]
 }
