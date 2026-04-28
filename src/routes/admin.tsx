@@ -347,8 +347,9 @@ function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
     }
     setSubmitting(true);
     // Cria via signUp — auto-confirm está habilitado
+    const cleanEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: cleanEmail,
       password,
       options: { data: { display_name: name } },
     });

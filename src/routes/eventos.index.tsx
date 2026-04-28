@@ -109,24 +109,35 @@ function EventsPage() {
               params={{ eventId: e.id }}
               className="group rounded-2xl border border-border bg-[image:var(--gradient-surface)] p-5 transition-[var(--transition-smooth)] hover:border-primary/50 hover:shadow-[var(--shadow-glow)]"
             >
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <Badge
-                  variant="secondary"
-                  className={
-                    e.status === "active"
-                      ? "bg-success/15 text-success border-0"
+              <div className="relative h-32 w-full bg-surface mb-4 rounded-xl overflow-hidden">
+                {e.cover_url ? (
+                  <img src={e.cover_url} alt="Cover" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-[image:var(--gradient-surface)] text-muted-foreground opacity-50">
+                    <CalendarPlus className="size-8" />
+                  </div>
+                )}
+                <div className="absolute top-3 left-3">
+                  <Badge
+                    variant="secondary"
+                    className={
+                      e.status === "active"
+                        ? "bg-success text-success-foreground border-0 shadow-lg"
+                        : e.status === "finished"
+                        ? "bg-muted text-muted-foreground border-0 shadow-lg"
+                        : "bg-destructive text-destructive-foreground border-0 shadow-lg"
+                    }
+                  >
+                    {e.status === "active"
+                      ? "Ativo"
                       : e.status === "finished"
-                      ? "bg-muted text-muted-foreground border-0"
-                      : "bg-destructive/15 text-destructive border-0"
-                  }
-                >
-                  {e.status === "active"
-                    ? "Ativo"
-                    : e.status === "finished"
-                    ? "Finalizado"
-                    : "Cancelado"}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
+                      ? "Finalizado"
+                      : "Cancelado"}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <span className="text-xs text-muted-foreground font-medium bg-surface px-2 py-1 rounded-md">
                   {format(new Date(e.event_date + "T00:00:00"), "dd MMM yyyy", { locale: ptBR })}
                   {e.event_time ? ` · ${e.event_time.slice(0, 5)}` : ""}
                 </span>

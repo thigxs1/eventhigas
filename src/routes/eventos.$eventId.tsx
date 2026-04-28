@@ -91,6 +91,7 @@ type EventRow = {
   status: string;
   public_signup_enabled: boolean;
   public_signup_requires_approval: boolean;
+  cover_url: string | null;
 };
 type Guest = {
   id: string;
@@ -178,6 +179,36 @@ function EventDetailPage() {
     return { total, present, pending: total - present, count: approvedGuests.length };
   }, [approvedGuests]);
 
+  async function uploadCover(file: File) {
+    if (!event) return;
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `cover-${eventId}-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("events").upload(path, file, { upsert: true });
+    if (upErr) {
+      toast.error(upErr.message);
+      return;
+    }
+    const { data } = supabase.storage.from("events").getPublicUrl(path);
+    const { error } = await supabase.from("events").update({ cover_url: data.publicUrl }).eq("id", eventId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Capa atualizada");
+    load();
+  }
+
+  async function removeCover() {
+    if (!event) return;
+    const { error } = await supabase.from("events").update({ cover_url: null }).eq("id", eventId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Capa removida");
+    load();
+  }
+
   async function deleteEvent() {
     const { error } = await supabase.from("events").delete().eq("id", eventId);
     if (error) {
@@ -225,9 +256,37 @@ function EventDetailPage() {
         <ArrowLeft className="size-4" /> Voltar para eventos
       </Link>
 
-      <div className="rounded-2xl border border-border bg-[image:var(--gradient-surface)] p-6 mb-7">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div className="min-w-0">
+      <div className="rounded-2xl border border-border bg-card mb-7 overflow-hidden shadow-lg">
+        {/* Cover Section */}
+        <div className="relative h-48 md:h-72 bg-surface w-full group border-b border-border">
+          {event.cover_url ? (
+            <img src={event.cover_url} alt="Cover" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-[image:var(--gradient-surface)]">
+              <Upload className="size-8 mb-2 opacity-50" />
+              <span className="text-sm font-medium">Adicionar flyer / capa</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4">
+            <label className="cursor-pointer bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-medium shadow-[var(--shadow-glow)] hover:scale-105 transition-all inline-flex items-center gap-2">
+              <Upload className="size-4" />
+              {event.cover_url ? "Alterar capa" : "Fazer upload da capa"}
+              <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadCover(f);
+              }} />
+            </label>
+            {event.cover_url && (
+              <Button variant="destructive" className="rounded-xl px-5" onClick={removeCover}>
+                <Trash2 className="size-4 mr-2" /> Remover
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 md:p-8 bg-[image:var(--gradient-surface)]">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+            <div className="min-w-0 flex-1">
             <Badge
               className={
                 event.status === "active"
