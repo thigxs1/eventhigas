@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "dist/server/server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "dist/client/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(assets|images|favicon.ico)(.*)",
+      "destination": "/dist/client/$1$2"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "dist/server/server.js"
+    }
+  ]
+}
