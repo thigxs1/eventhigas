@@ -1,3 +1,4 @@
+import React from 'react';
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Lock, MinusCircle, PlusCircle, RotateCcw, ScanLine, Search, Undo2, Unlock, X } from "lucide-react";

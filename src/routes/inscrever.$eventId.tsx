@@ -1,3 +1,4 @@
+import React from 'react';
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
