@@ -387,6 +387,7 @@ function EventDetailPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          </div>
         </div>
       </div>
 
