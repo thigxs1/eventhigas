@@ -1,11 +1,54 @@
 // Temas pré-prontos do sistema. Cada tema define os tokens semânticos no :root.
 // Aplicado dinamicamente via document.documentElement.style.setProperty.
 
-export type ThemeId = "midnight-indigo" | "noir-gold" | "ocean-deep" | "emerald-prestige" | "white-premium";
+export type ThemeId =
+  | "obsidian-amber"
+  | "midnight-indigo"
+  | "noir-gold"
+  | "ocean-deep"
+  | "emerald-prestige"
+  | "white-premium";
 
 export type ThemeTokens = Record<string, string>;
 
 export const THEMES: Record<ThemeId, { name: string; tokens: ThemeTokens }> = {
+  "obsidian-amber": {
+    name: "Obsidian & Amber (Portaria)",
+    tokens: {
+      "--background": "#121214",
+      "--foreground": "#f4f4f6",
+      "--surface": "rgba(255, 255, 255, 0.03)",
+      "--surface-elevated": "rgba(30, 30, 34, 0.65)",
+      "--card": "rgba(255, 255, 255, 0.03)",
+      "--card-foreground": "#f4f4f6",
+      "--popover": "#1a1a1e",
+      "--popover-foreground": "#f4f4f6",
+      "--primary": "#ff6b00",
+      "--primary-foreground": "#ffffff",
+      "--primary-glow": "#ff8533",
+      "--secondary": "rgba(255, 255, 255, 0.06)",
+      "--secondary-foreground": "#f4f4f6",
+      "--muted": "rgba(255, 255, 255, 0.05)",
+      "--muted-foreground": "rgba(255, 255, 255, 0.56)",
+      "--accent": "#ff6b00",
+      "--accent-foreground": "#ffffff",
+      "--border": "rgba(255, 255, 255, 0.08)",
+      "--input": "rgba(255, 255, 255, 0.08)",
+      "--ring": "#ff6b00",
+      "--sidebar": "rgba(18, 18, 20, 0.85)",
+      "--sidebar-foreground": "rgba(255, 255, 255, 0.86)",
+      "--sidebar-primary": "#ff6b00",
+      "--sidebar-primary-foreground": "#ffffff",
+      "--sidebar-accent": "rgba(255, 255, 255, 0.06)",
+      "--sidebar-accent-foreground": "#ffffff",
+      "--sidebar-border": "rgba(255, 255, 255, 0.08)",
+      "--sidebar-ring": "#ff6b00",
+      "--gradient-primary": "linear-gradient(135deg, #ff6b00, #ff8533)",
+      "--gradient-glow":
+        "radial-gradient(circle at 18% 12%, rgba(255, 107, 0, 0.1), transparent 44%), radial-gradient(circle at 84% 82%, rgba(255, 128, 36, 0.05), transparent 48%)",
+      "--shadow-glow": "0 0 28px rgba(255, 107, 0, 0.35)",
+    },
+  },
   "midnight-indigo": {
     name: "Midnight Indigo",
     tokens: {
@@ -38,7 +81,8 @@ export const THEMES: Record<ThemeId, { name: string; tokens: ThemeTokens }> = {
       "--sidebar-border": "oklch(0.22 0.05 270)",
       "--sidebar-ring": "oklch(0.62 0.22 275)",
       "--gradient-primary": "linear-gradient(135deg, oklch(0.62 0.22 275), oklch(0.55 0.22 295))",
-      "--gradient-glow": "radial-gradient(circle at 30% 20%, oklch(0.62 0.22 275 / 0.25), transparent 60%)",
+      "--gradient-glow":
+        "radial-gradient(circle at 30% 20%, oklch(0.62 0.22 275 / 0.25), transparent 60%)",
       "--shadow-glow": "0 0 40px oklch(0.62 0.22 275 / 0.35)",
     },
   },
@@ -74,7 +118,8 @@ export const THEMES: Record<ThemeId, { name: string; tokens: ThemeTokens }> = {
       "--sidebar-border": "oklch(0.22 0.01 90)",
       "--sidebar-ring": "oklch(0.78 0.13 85)",
       "--gradient-primary": "linear-gradient(135deg, oklch(0.78 0.13 85), oklch(0.62 0.12 70))",
-      "--gradient-glow": "radial-gradient(circle at 30% 20%, oklch(0.78 0.13 85 / 0.18), transparent 60%)",
+      "--gradient-glow":
+        "radial-gradient(circle at 30% 20%, oklch(0.78 0.13 85 / 0.18), transparent 60%)",
       "--shadow-glow": "0 0 40px oklch(0.78 0.13 85 / 0.25)",
     },
   },
@@ -110,7 +155,8 @@ export const THEMES: Record<ThemeId, { name: string; tokens: ThemeTokens }> = {
       "--sidebar-border": "oklch(0.23 0.06 235)",
       "--sidebar-ring": "oklch(0.65 0.15 220)",
       "--gradient-primary": "linear-gradient(135deg, oklch(0.65 0.15 220), oklch(0.55 0.16 210))",
-      "--gradient-glow": "radial-gradient(circle at 30% 20%, oklch(0.65 0.15 220 / 0.22), transparent 60%)",
+      "--gradient-glow":
+        "radial-gradient(circle at 30% 20%, oklch(0.65 0.15 220 / 0.22), transparent 60%)",
       "--shadow-glow": "0 0 40px oklch(0.65 0.15 220 / 0.30)",
     },
   },
@@ -146,7 +192,8 @@ export const THEMES: Record<ThemeId, { name: string; tokens: ThemeTokens }> = {
       "--sidebar-border": "oklch(0.22 0.05 160)",
       "--sidebar-ring": "oklch(0.62 0.16 160)",
       "--gradient-primary": "linear-gradient(135deg, oklch(0.62 0.16 160), oklch(0.78 0.13 90))",
-      "--gradient-glow": "radial-gradient(circle at 30% 20%, oklch(0.62 0.16 160 / 0.22), transparent 60%)",
+      "--gradient-glow":
+        "radial-gradient(circle at 30% 20%, oklch(0.62 0.16 160 / 0.22), transparent 60%)",
       "--shadow-glow": "0 0 40px oklch(0.62 0.16 160 / 0.30)",
     },
   },
@@ -182,14 +229,15 @@ export const THEMES: Record<ThemeId, { name: string; tokens: ThemeTokens }> = {
       "--sidebar-border": "oklch(0.88 0.02 270)",
       "--sidebar-ring": "oklch(0.6 0.2 275)",
       "--gradient-primary": "linear-gradient(135deg, oklch(0.6 0.2 275), oklch(0.5 0.15 295))",
-      "--gradient-glow": "radial-gradient(circle at 30% 20%, oklch(0.6 0.2 275 / 0.15), transparent 60%)",
+      "--gradient-glow":
+        "radial-gradient(circle at 30% 20%, oklch(0.6 0.2 275 / 0.15), transparent 60%)",
       "--shadow-glow": "0 10px 40px oklch(0.6 0.2 275 / 0.1)",
     },
   },
 };
 
 export function applyTheme(themeId: string) {
-  const theme = THEMES[themeId as ThemeId] ?? THEMES["midnight-indigo"];
+  const theme = THEMES[themeId as ThemeId] ?? THEMES["obsidian-amber"];
   const root = document.documentElement;
   for (const [key, value] of Object.entries(theme.tokens)) {
     root.style.setProperty(key, value);

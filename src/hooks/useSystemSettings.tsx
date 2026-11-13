@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { applyTheme } from "@/lib/themes";
@@ -24,14 +24,31 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const { data } = await supabase
-      .from("system_settings")
-      .select("id,system_name,logo_url,theme,ticket_types")
-      .limit(1)
-      .maybeSingle();
+    const { data } = await supabase.from("system_settings").select("*").limit(1).maybeSingle();
     if (data) {
-      setSettings(data as SystemSettings);
-      applyTheme(data.theme);
+      const row = data as Partial<SystemSettings> & {
+        id: string;
+        system_name: string;
+        logo_url: string | null;
+        theme: string;
+      };
+      const resolvedTheme =
+        !row.theme ||
+        (row.theme === "midnight-indigo" && row.system_name === "Casa de Eventos" && !row.logo_url)
+          ? "obsidian-amber"
+          : row.theme;
+      const normalized: SystemSettings = {
+        id: row.id,
+        system_name: row.system_name || "Casa de Eventos",
+        logo_url: row.logo_url ?? null,
+        theme: resolvedTheme,
+        ticket_types:
+          Array.isArray(row.ticket_types) && row.ticket_types.length > 0
+            ? row.ticket_types
+            : ["pista", "vip", "camarote"],
+      };
+      setSettings(normalized);
+      applyTheme(resolvedTheme);
     }
     setLoading(false);
   }
@@ -40,7 +57,9 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
     load();
     const channel = supabase
       .channel("system_settings_sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "system_settings" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "system_settings" }, () =>
+        load(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);

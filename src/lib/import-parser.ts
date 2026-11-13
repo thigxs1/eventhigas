@@ -1,5 +1,3 @@
-import * as XLSX from "xlsx";
-
 export type ParsedRow = {
   full_name: string;
   cpf: string | null;
@@ -42,10 +40,7 @@ function normalizeKey(s: string): string {
 function buildHeaderMap(headers: string[]): Partial<Record<keyof ParsedRow, string>> {
   const out: Partial<Record<keyof ParsedRow, string>> = {};
   const norm = headers.map((h) => ({ original: h, n: normalizeKey(h) }));
-  for (const [field, aliases] of Object.entries(FIELD_ALIASES) as [
-    keyof ParsedRow,
-    string[],
-  ][]) {
+  for (const [field, aliases] of Object.entries(FIELD_ALIASES) as [keyof ParsedRow, string[]][]) {
     const found = norm.find((h) => aliases.includes(h.n));
     if (found) out[field] = found.original;
   }
@@ -53,7 +48,7 @@ function buildHeaderMap(headers: string[]): Partial<Record<keyof ParsedRow, stri
 }
 
 export async function parseGuestFile(file: File): Promise<ParseResult> {
-  const buf = await file.arrayBuffer();
+  const [XLSX, buf] = await Promise.all([import("xlsx"), file.arrayBuffer()]);
   const wb = XLSX.read(buf, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
@@ -97,16 +92,26 @@ export async function parseGuestFile(file: File): Promise<ParseResult> {
     rows.push({
       full_name: name.slice(0, 200),
       cpf: map.cpf
-        ? String(raw[map.cpf] ?? "").replace(/\D/g, "").slice(0, 11) || null
+        ? String(raw[map.cpf] ?? "")
+            .replace(/\D/g, "")
+            .slice(0, 11) || null
         : null,
       phone: map.phone
-        ? String(raw[map.phone] ?? "").replace(/\D/g, "").slice(0, 15) || null
+        ? String(raw[map.phone] ?? "")
+            .replace(/\D/g, "")
+            .slice(0, 15) || null
         : null,
       ticket_quantity: Math.floor(qty),
       ticket_type: map.ticket_type
-        ? String(raw[map.ticket_type] ?? "pista").trim().slice(0, 40) || "pista"
+        ? String(raw[map.ticket_type] ?? "pista")
+            .trim()
+            .slice(0, 40) || "pista"
         : "pista",
-      notes: map.notes ? String(raw[map.notes] ?? "").trim().slice(0, 500) || null : null,
+      notes: map.notes
+        ? String(raw[map.notes] ?? "")
+            .trim()
+            .slice(0, 500) || null
+        : null,
     });
   });
 

@@ -1,349 +1,501 @@
-import React from 'react';
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import {
-  Activity,
-  CalendarDays,
-  Clock,
-  PartyPopper,
-  TicketCheck,
-  Users,
-} from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { PageHeader } from "@/components/PageHeader";
-import { StatCard } from "@/components/StatCard";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { normalizeText, onlyDigits } from "@/lib/format";
+import { PortariaHeader } from "@/components/portaria/PortariaHeader";
+import { HeroMetricsSection } from "@/components/portaria/HeroMetricsSection";
+import { RecentCheckinsList, type ListFilter } from "@/components/portaria/RecentCheckinsList";
+import { QrScannerModal } from "@/components/portaria/QrScannerModal";
+import {
+  buildDemoPortariaData,
+  isVipTicketType,
+  type HourlyFlowPoint,
+  type PortariaCheckin,
+  type PortariaEvent,
+  type PortariaGuest,
+  type PortariaListRow,
+} from "@/components/portaria/types";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Casa de Eventos" },
-      { name: "description", content: "Visão geral em tempo real dos eventos e check-ins." },
+      { title: "Portaria & Lista — Casa de Eventos" },
+      {
+        name: "description",
+        content:
+          "Dashboard em tempo real para controle de entrada de eventos, lotação e lista VIP.",
+      },
     ],
   }),
-  component: DashboardPage,
+  component: PortariaDashboardPage,
 });
 
-type Stats = {
-  events: { id: string; name: string; event_date: string; event_time: string | null; status: string }[];
-  totalGuests: number;
-  totalTickets: number;
-  totalCheckedIn: number;
-  recentCheckins: { id: string; checked_in_at: string; people_count: number; guest_name: string; event_name: string }[];
-  byTicketType: { type: string; total: number; presentes: number }[];
-};
-
-function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
+function PortariaDashboardPage() {
+  const { user } = useAuth();
+  const [events, setEvents] = useState<PortariaEvent[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
+  const [guests, setGuests] = useState<PortariaGuest[]>([]);
+  const [checkins, setCheckins] = useState<PortariaCheckin[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const today = new Date().toISOString().slice(0, 10);
-      const [{ data: events }, { data: guests }, { data: checkins }] = await Promise.all([
-        supabase
-          .from("events")
-          .select("id,name,event_date,event_time,status")
-          .gte("event_date", today)
-          .order("event_date", { ascending: true })
-          .limit(5),
-        supabase
-          .from("guests")
-          .select("id,event_id,ticket_quantity,ticket_type,checked_in_count"),
-        supabase
-          .from("checkins")
-          .select("id,checked_in_at,people_count,guest:guests(full_name),event:events(name)")
-          .order("checked_in_at", { ascending: false })
-          .limit(8),
-      ]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [listFilter, setListFilter] = useState<ListFilter>("todos");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [checkingInId, setCheckingInId] = useState<string | null>(null);
 
-      if (cancelled) return;
+  const [demoMode, setDemoMode] = useState(false);
+  const [demoValidatedIds, setDemoValidatedIds] = useState<Record<string, string>>({});
 
-      const totalGuests = guests?.length ?? 0;
-      const totalTickets =
-        guests?.reduce((s, g) => s + (g.ticket_quantity ?? 0), 0) ?? 0;
-      const totalCheckedIn =
-        guests?.reduce((s, g) => s + (g.checked_in_count ?? 0), 0) ?? 0;
+  const demoData = useMemo(() => buildDemoPortariaData(), []);
 
-      const typeMap = new Map<string, { total: number; presentes: number }>();
-      for (const g of guests ?? []) {
-        const cur = typeMap.get(g.ticket_type) ?? { total: 0, presentes: 0 };
-        cur.total += g.ticket_quantity ?? 0;
-        cur.presentes += g.checked_in_count ?? 0;
-        typeMap.set(g.ticket_type, cur);
-      }
+  const loadPortariaData = useCallback(async () => {
+    const { data: evData } = await supabase
+      .from("events")
+      .select("id,name,event_date,event_time,location,status")
+      .order("event_date", { ascending: false })
+      .limit(20);
 
-      setStats({
-        events: events ?? [],
-        totalGuests,
-        totalTickets,
-        totalCheckedIn,
-        recentCheckins:
-          checkins?.map((c) => {
-            const guest = (c as { guest?: { full_name?: string } | null }).guest;
-            const event = (c as { event?: { name?: string } | null }).event;
-            return {
-              id: c.id,
-              checked_in_at: c.checked_in_at,
-              people_count: c.people_count,
-              guest_name: guest?.full_name ?? "—",
-              event_name: event?.name ?? "—",
-            };
-          }) ?? [],
-        byTicketType: Array.from(typeMap.entries()).map(([type, v]) => ({
-          type,
-          ...v,
-        })),
-      });
+    const eventList = (evData ?? []) as PortariaEvent[];
+    setEvents(eventList);
+
+    if (eventList.length === 0) {
+      setGuests([]);
+      setCheckins([]);
       setLoading(false);
+      return;
     }
-    load();
-    return () => {
-      cancelled = true;
+
+    const activeFirst =
+      eventList.find((e) => e.id === selectedEventId) ??
+      eventList.find((e) => e.status === "active") ??
+      eventList[0];
+
+    if (activeFirst.id !== selectedEventId) {
+      setSelectedEventId(activeFirst.id);
+    }
+
+    const [{ data: gs }, { data: cks }] = await Promise.all([
+      supabase
+        .from("guests")
+        .select(
+          "id,event_id,full_name,cpf,phone,ticket_quantity,ticket_type,checked_in_count,status,notes",
+        )
+        .eq("event_id", activeFirst.id)
+        .order("full_name", { ascending: true })
+        .limit(5000),
+      supabase
+        .from("checkins")
+        .select(
+          "id,event_id,guest_id,checked_in_at,people_count,operator,guest:guests(full_name,ticket_type,cpf,phone,notes)",
+        )
+        .eq("event_id", activeFirst.id)
+        .order("checked_in_at", { ascending: false })
+        .limit(120),
+    ]);
+
+    setGuests((gs ?? []) as PortariaGuest[]);
+    setCheckins(
+      (cks ?? []).map((row) => {
+        const guestRel = (
+          row as {
+            guest?: {
+              full_name?: string;
+              ticket_type?: string;
+              cpf?: string | null;
+              phone?: string | null;
+              notes?: string | null;
+            } | null;
+          }
+        ).guest;
+        return {
+          id: row.id,
+          event_id: row.event_id,
+          guest_id: row.guest_id,
+          checked_in_at: row.checked_in_at,
+          people_count: row.people_count,
+          operator: row.operator,
+          guest_name: guestRel?.full_name ?? "Convidado",
+          ticket_type: guestRel?.ticket_type ?? "pista",
+          cpf: guestRel?.cpf ?? null,
+          phone: guestRel?.phone ?? null,
+          notes: guestRel?.notes ?? null,
+        };
+      }),
+    );
+    setLoading(false);
+  }, [selectedEventId]);
+
+  useEffect(() => {
+    loadPortariaData();
+  }, [loadPortariaData]);
+
+  useRealtimeSync(
+    selectedEventId ? `portaria-event-${selectedEventId}` : "portaria-dashboard-sync",
+    ["guests", "checkins"],
+    loadPortariaData,
+    selectedEventId ? { column: "event_id", value: selectedEventId } : undefined,
+  );
+  useRealtimeSync("portaria-events-sync", ["events"], loadPortariaData);
+
+  const guestsWithNorm = useMemo(
+    () =>
+      guests.map((g) => ({
+        guest: g,
+        nameNorm: normalizeText(g.full_name),
+        typeNorm: normalizeText(g.ticket_type),
+      })),
+    [guests],
+  );
+
+  const hasRealEvents = events.length > 0;
+  const activeEvent = useMemo(
+    () =>
+      demoMode
+        ? demoData.event
+        : (events.find((e) => e.id === selectedEventId) ?? events[0] ?? null),
+    [demoMode, demoData.event, events, selectedEventId],
+  );
+
+  // Derived real-time metrics
+  const metrics = useMemo(() => {
+    if (demoMode) {
+      const extraValidated = Object.keys(demoValidatedIds).length;
+      return {
+        presentCount: demoData.presentCount + extraValidated,
+        capacity: demoData.capacity,
+        validatedLastHours: demoData.validatedLastHours + extraValidated,
+        lastHourDelta: demoData.lastHourDelta + extraValidated,
+        vipPending: Math.max(demoData.vipPending - extraValidated, 0),
+        vipTotal: demoData.vipTotal,
+        hourlyFlow: demoData.hourlyFlow,
+      };
+    }
+
+    const approvedGuests = guests.filter((g) => g.status === "approved");
+    const capacity = approvedGuests.reduce((sum, g) => sum + (g.ticket_quantity ?? 0), 0);
+    const presentCount = approvedGuests.reduce((sum, g) => sum + (g.checked_in_count ?? 0), 0);
+
+    const nowMs = Date.now();
+    const threeHoursAgo = nowMs - 3 * 60 * 60 * 1000;
+    const oneHourAgo = nowMs - 60 * 60 * 1000;
+
+    let validatedLastHours = 0;
+    let lastHourDelta = 0;
+    const hourBuckets = new Map<string, number>();
+
+    for (const c of checkins) {
+      const ts = new Date(c.checked_in_at).getTime();
+      if (ts >= threeHoursAgo) validatedLastHours += c.people_count;
+      if (ts >= oneHourAgo) lastHourDelta += c.people_count;
+
+      const label = format(new Date(c.checked_in_at), "HH:00");
+      hourBuckets.set(label, (hourBuckets.get(label) ?? 0) + c.people_count);
+    }
+
+    const hourlyFlow: HourlyFlowPoint[] = Array.from(hourBuckets.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6)
+      .map(([hour, validados], idx, arr) => {
+        const avg = Math.round(arr.reduce((acc, [, v]) => acc + v, 0) / Math.max(arr.length, 1));
+        return { hour, validados, meta: Math.max(avg, idx > 0 ? arr[idx - 1][1] : avg) };
+      });
+
+    const vipGuests = guests.filter(
+      (g) => isVipTicketType(g.ticket_type) && g.status !== "rejected",
+    );
+    const vipTotal = vipGuests.reduce((sum, g) => sum + (g.ticket_quantity ?? 0), 0);
+    const vipPending = vipGuests.reduce((sum, g) => {
+      if (g.status === "pending") return sum + (g.ticket_quantity ?? 1);
+      return sum + Math.max((g.ticket_quantity ?? 1) - (g.checked_in_count ?? 0), 0);
+    }, 0);
+
+    return {
+      presentCount,
+      capacity,
+      validatedLastHours,
+      lastHourDelta,
+      vipPending,
+      vipTotal,
+      hourlyFlow,
     };
-  }, []);
+  }, [demoMode, demoData, demoValidatedIds, guests, checkins]);
 
-  const occupation =
-    stats && stats.totalTickets > 0
-      ? Math.round((stats.totalCheckedIn / stats.totalTickets) * 100)
-      : 0;
-  const pendentes = stats ? stats.totalTickets - stats.totalCheckedIn : 0;
+  // Build rows for either Recent Check-ins feed or Live Search across guests
+  const listRows = useMemo<PortariaListRow[]>(() => {
+    const q = searchQuery.trim();
 
-  const pieData = [
-    { name: "Presentes", value: stats?.totalCheckedIn ?? 0 },
-    { name: "Pendentes", value: Math.max(pendentes, 0) },
-  ];
-  const PIE_COLORS = ["oklch(0.7 0.18 155)", "oklch(0.28 0.05 270)"];
+    if (demoMode) {
+      const demoCheckinRows: PortariaListRow[] = [
+        ...Object.entries(demoValidatedIds).map(([guestId, timestamp]) => {
+          const g = demoData.pendingGuests.find((item) => item.id === guestId);
+          return {
+            key: `demo-new-${guestId}`,
+            guestId,
+            fullName: g?.full_name ?? "Convidado VIP",
+            ticketType: g?.ticket_type ?? "VIP",
+            cpf: g?.cpf ?? null,
+            phone: g?.phone ?? null,
+            notes: g?.notes ?? null,
+            checkedInAt: timestamp,
+            peopleCount: 1,
+            checkedInTotal: (g?.checked_in_count ?? 0) + 1,
+            ticketQuantity: g?.ticket_quantity ?? 1,
+            isValidated: true,
+          };
+        }),
+        ...demoData.recentCheckins.map((c) => ({
+          key: c.id,
+          guestId: c.guest_id,
+          fullName: c.guest_name,
+          ticketType: c.ticket_type,
+          cpf: c.cpf,
+          phone: c.phone,
+          notes: c.notes,
+          checkedInAt: c.checked_in_at,
+          peopleCount: c.people_count,
+          checkedInTotal: c.people_count,
+          ticketQuantity: c.people_count,
+          isValidated: true,
+        })),
+      ];
+
+      const demoPendingRows: PortariaListRow[] = demoData.pendingGuests
+        .filter((g) => !demoValidatedIds[g.id])
+        .map((g) => ({
+          key: `demo-pending-${g.id}`,
+          guestId: g.id,
+          fullName: g.full_name,
+          ticketType: g.ticket_type,
+          cpf: g.cpf,
+          phone: g.phone,
+          notes: g.notes,
+          checkedInAt: null,
+          peopleCount: 0,
+          checkedInTotal: g.checked_in_count,
+          ticketQuantity: g.ticket_quantity,
+          isValidated: false,
+        }));
+
+      const combined = q
+        ? [...demoPendingRows, ...demoCheckinRows]
+        : [...demoCheckinRows, ...demoPendingRows];
+      if (!q) return combined;
+      const qNorm = normalizeText(q);
+      const qDigits = onlyDigits(q);
+      return combined.filter(
+        (r) =>
+          normalizeText(r.fullName).includes(qNorm) ||
+          normalizeText(r.ticketType).includes(qNorm) ||
+          (qDigits.length >= 3 && (r.cpf?.includes(qDigits) || r.phone?.includes(qDigits))),
+      );
+    }
+
+    const latestByGuest = new Map<string, string>();
+    for (const c of checkins) {
+      if (!latestByGuest.has(c.guest_id)) {
+        latestByGuest.set(c.guest_id, c.checked_in_at);
+      }
+    }
+
+    const guestById = new Map(guests.map((g) => [g.id, g]));
+
+    // When searching, show matching guests from full event list (pre-normalized)
+    if (q) {
+      const qNorm = normalizeText(q);
+      const qDigits = onlyDigits(q);
+      const matches: PortariaListRow[] = [];
+      for (const item of guestsWithNorm) {
+        const g = item.guest;
+        if (g.status !== "approved") continue;
+        const hit =
+          item.nameNorm.includes(qNorm) ||
+          item.typeNorm.includes(qNorm) ||
+          (qDigits.length >= 3 && (g.cpf?.includes(qDigits) || g.phone?.includes(qDigits)));
+        if (!hit) continue;
+        matches.push({
+          key: `guest-${g.id}`,
+          guestId: g.id,
+          fullName: g.full_name,
+          ticketType: g.ticket_type,
+          cpf: g.cpf,
+          phone: g.phone,
+          notes: g.notes,
+          checkedInAt: latestByGuest.get(g.id) ?? null,
+          peopleCount: g.checked_in_count,
+          checkedInTotal: g.checked_in_count,
+          ticketQuantity: g.ticket_quantity,
+          isValidated: g.checked_in_count > 0,
+        });
+        if (matches.length >= 40) break;
+      }
+      return matches;
+    }
+
+    // Default feed: recent check-ins followed by pending VIPs if feed is short
+    const checkinRows: PortariaListRow[] = checkins.slice(0, 20).map((c) => {
+      const g = guestById.get(c.guest_id);
+      return {
+        key: c.id,
+        guestId: c.guest_id,
+        fullName: c.guest_name,
+        ticketType: c.ticket_type,
+        cpf: c.cpf,
+        phone: c.phone,
+        notes: c.notes,
+        checkedInAt: c.checked_in_at,
+        peopleCount: c.people_count,
+        checkedInTotal: g?.checked_in_count ?? c.people_count,
+        ticketQuantity: g?.ticket_quantity ?? c.people_count,
+        isValidated: true,
+      };
+    });
+
+    const pendingLimit = listFilter === "todos" ? 8 : 60;
+    const pendingRows: PortariaListRow[] = guests
+      .filter((g) => g.status === "approved" && g.checked_in_count < g.ticket_quantity)
+      .slice(0, pendingLimit)
+      .map((g) => ({
+        key: `pending-${g.id}`,
+        guestId: g.id,
+        fullName: g.full_name,
+        ticketType: g.ticket_type,
+        cpf: g.cpf,
+        phone: g.phone,
+        notes: g.notes,
+        checkedInAt: null,
+        peopleCount: 0,
+        checkedInTotal: g.checked_in_count,
+        ticketQuantity: g.ticket_quantity,
+        isValidated: false,
+      }));
+
+    return [...checkinRows, ...pendingRows];
+  }, [
+    searchQuery,
+    listFilter,
+    demoMode,
+    demoData,
+    demoValidatedIds,
+    guests,
+    guestsWithNorm,
+    checkins,
+  ]);
+
+  const scannerGuests = useMemo<PortariaGuest[]>(() => {
+    if (demoMode) {
+      return demoData.pendingGuests.map((g) =>
+        demoValidatedIds[g.id] ? { ...g, checked_in_count: g.ticket_quantity } : g,
+      );
+    }
+    return guests.filter((g) => g.status === "approved");
+  }, [demoMode, demoData.pendingGuests, demoValidatedIds, guests]);
+
+  function handleFilterVipPending() {
+    setSearchQuery("");
+    setListFilter("pendentes");
+    if (typeof document !== "undefined") {
+      document
+        .getElementById("portaria-lista")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  async function handleQuickCheckin(guestId: string, fullName: string) {
+    if (demoMode) {
+      setDemoValidatedIds((prev) => ({
+        ...prev,
+        [guestId]: new Date().toISOString(),
+      }));
+      toast.success(`Entrada validada: ${fullName}`);
+      return;
+    }
+
+    if (!activeEvent) return;
+    const strictMode =
+      typeof window === "undefined"
+        ? true
+        : window.localStorage.getItem("checkin_strict_mode") !== "false";
+    const targetGuest = guests.find((g) => g.id === guestId);
+    if (targetGuest && strictMode && targetGuest.checked_in_count >= targetGuest.ticket_quantity) {
+      toast.error("Limite de ingressos atingido para este convidado");
+      return;
+    }
+
+    setCheckingInId(guestId);
+    const { error } = await supabase.from("checkins").insert({
+      event_id: activeEvent.id,
+      guest_id: guestId,
+      people_count: 1,
+      operator: user?.email ?? null,
+    });
+    setCheckingInId(null);
+
+    if (error) {
+      toast.error(error.message || "Erro ao registrar check-in");
+      return;
+    }
+
+    toast.success(`Entrada validada: ${fullName}`);
+    loadPortariaData();
+  }
 
   return (
-    <div className="px-5 md:px-8 py-7 md:py-9 max-w-[1400px] mx-auto">
-      <PageHeader
-        title="Visão geral"
-        subtitle={`Hoje, ${format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}`}
-        action={
-          <Link to="/eventos">
-            <Button>
-              <CalendarDays className="size-4" />
-              Ver eventos
-            </Button>
-          </Link>
-        }
+    <div className="p-5 sm:p-6 lg:p-7 max-w-[1480px] mx-auto">
+      <PortariaHeader
+        event={activeEvent}
+        events={events}
+        selectedEventId={selectedEventId}
+        onSelectEvent={(id) => {
+          setDemoMode(false);
+          setSelectedEventId(id);
+        }}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onOpenScanner={() => setScannerOpen(true)}
+        onFilterVipPending={handleFilterVipPending}
+        vipPendingCount={metrics.vipPending}
+        userEmail={user?.email}
+        isDemoMode={demoMode}
+        hasRealEvents={hasRealEvents}
+        onToggleDemoMode={() => setDemoMode((prev) => !prev)}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          label="Convidados"
-          value={loading ? "…" : stats?.totalGuests ?? 0}
-          icon={Users}
-          accent="primary"
-        />
-        <StatCard
-          label="Ingressos vendidos"
-          value={loading ? "…" : stats?.totalTickets ?? 0}
-          icon={TicketCheck}
-          accent="primary"
-        />
-        <StatCard
-          label="Presentes"
-          value={loading ? "…" : stats?.totalCheckedIn ?? 0}
-          hint={`${occupation}% de ocupação`}
-          icon={PartyPopper}
-          accent="success"
-        />
-        <StatCard
-          label="Pendentes"
-          value={loading ? "…" : pendentes}
-          icon={Clock}
-          accent="warning"
-        />
-      </div>
+      <HeroMetricsSection
+        presentCount={metrics.presentCount}
+        capacity={metrics.capacity}
+        validatedLastHours={metrics.validatedLastHours}
+        lastHourDelta={metrics.lastHourDelta}
+        vipPending={metrics.vipPending}
+        vipTotal={metrics.vipTotal}
+        hourlyFlow={metrics.hourlyFlow}
+        eventId={activeEvent?.id}
+        onOpenScanner={() => setScannerOpen(true)}
+        onFilterVipPending={handleFilterVipPending}
+        hasRealEvents={hasRealEvents}
+        isDemoMode={demoMode}
+        onEnableDemo={() => setDemoMode(true)}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
-        <div className="rounded-2xl border border-border bg-card p-5 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-lg">Ingressos por tipo</h2>
-            <span className="text-xs text-muted-foreground">Vendidos vs presentes</span>
-          </div>
-          <div className="h-[260px]">
-            {stats && stats.byTicketType.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.byTicketType}>
-                  <XAxis
-                    dataKey="type"
-                    tick={{ fill: "oklch(0.68 0.04 270)", fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: "oklch(0.68 0.04 270)", fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "oklch(0.22 0.05 270 / 0.5)" }}
-                    contentStyle={{
-                      background: "oklch(0.17 0.05 270)",
-                      border: "1px solid oklch(0.28 0.05 270 / 0.6)",
-                      borderRadius: 12,
-                      color: "oklch(0.97 0.01 270)",
-                    }}
-                  />
-                  <Bar dataKey="total" name="Vendidos" fill="oklch(0.62 0.22 275)" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="presentes" name="Presentes" fill="oklch(0.7 0.18 155)" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <EmptyHint text="Sem dados ainda — importe uma lista de convidados para começar." />
-            )}
-          </div>
-        </div>
+      <RecentCheckinsList
+        rows={listRows}
+        searchQuery={searchQuery}
+        loading={loading && !demoMode}
+        onQuickCheckin={handleQuickCheckin}
+        checkingInId={checkingInId}
+        activeFilter={listFilter}
+        onFilterChange={setListFilter}
+      />
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-lg">Ocupação</h2>
-            <Badge variant="secondary" className="bg-primary/15 text-primary border-0">
-              {occupation}%
-            </Badge>
-          </div>
-          <div className="h-[260px]">
-            {stats && stats.totalTickets > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i]} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: "oklch(0.17 0.05 270)",
-                      border: "1px solid oklch(0.28 0.05 270 / 0.6)",
-                      borderRadius: 12,
-                      color: "oklch(0.97 0.01 270)",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <EmptyHint text="Sem ingressos cadastrados." />
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-lg">Próximos eventos</h2>
-            <Link to="/eventos" className="text-xs text-primary hover:underline">
-              Ver todos →
-            </Link>
-          </div>
-          {stats && stats.events.length > 0 ? (
-            <ul className="space-y-2">
-              {stats.events.map((e) => (
-                <li key={e.id}>
-                  <Link
-                    to="/eventos/$eventId"
-                    params={{ eventId: e.id }}
-                    className="flex items-center justify-between p-3 rounded-xl bg-surface hover:bg-surface-elevated transition-colors group"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{e.name}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {format(new Date(e.event_date + "T00:00:00"), "dd 'de' MMM", { locale: ptBR })}
-                        {e.event_time ? ` · ${e.event_time.slice(0, 5)}` : ""}
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
-                      {statusLabel(e.status)}
-                    </Badge>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyHint text="Nenhum evento futuro. Crie seu primeiro evento." />
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-lg flex items-center gap-2">
-              <Activity className="size-4 text-primary" /> Últimos check-ins
-            </h2>
-          </div>
-          {stats && stats.recentCheckins.length > 0 ? (
-            <ul className="space-y-2">
-              {stats.recentCheckins.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-surface"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{c.guest_name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {c.event_name}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0 ml-3">
-                    <Badge className="bg-success/15 text-success border-0">
-                      +{c.people_count}
-                    </Badge>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      {format(new Date(c.checked_in_at), "HH:mm")}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyHint text="Nenhum check-in registrado ainda." />
-          )}
-        </div>
-      </div>
+      <QrScannerModal
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        guests={scannerGuests}
+        onConfirmCheckin={handleQuickCheckin}
+      />
     </div>
   );
-}
-
-function EmptyHint({ text }: { text: string }) {
-  return (
-    <div className="h-full flex items-center justify-center text-sm text-muted-foreground text-center px-4">
-      {text}
-    </div>
-  );
-}
-
-function statusLabel(s: string) {
-  switch (s) {
-    case "active":
-      return "Ativo";
-    case "finished":
-      return "Finalizado";
-    case "cancelled":
-      return "Cancelado";
-    default:
-      return s;
-  }
 }

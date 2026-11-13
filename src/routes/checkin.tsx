@@ -1,13 +1,24 @@
-import React from 'react';
+import React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Lock, MinusCircle, PlusCircle, RotateCcw, ScanLine, Search, Undo2, Unlock, X } from "lucide-react";
+import {
+  Check,
+  Lock,
+  MinusCircle,
+  PlusCircle,
+  RotateCcw,
+  ScanLine,
+  Search,
+  Undo2,
+  Unlock,
+  X,
+} from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -66,6 +77,7 @@ type RecentCheckin = {
 };
 
 function CheckinPage() {
+  const { user } = useAuth();
   const { eventId: searchEventId } = Route.useSearch();
   const [events, setEvents] = useState<EventOpt[]>([]);
   const [eventId, setEventId] = useState<string | undefined>(searchEventId);
@@ -111,7 +123,8 @@ function CheckinPage() {
         .from("guests")
         .select("*")
         .eq("event_id", eventId)
-        .order("full_name", { ascending: true }),
+        .order("full_name", { ascending: true })
+        .limit(5000),
       supabase
         .from("checkins")
         .select("id,people_count,checked_in_at,guest:guests(full_name)")
@@ -138,35 +151,39 @@ function CheckinPage() {
     inputRef.current?.focus();
   }, [eventId]);
 
-  // Sincronismo entre dispositivos
+  // Sincronismo entre dispositivos (canal único para evitar refetch duplicado)
   useRealtimeSync(
-    `checkin-${eventId}-guests`,
-    ["guests"],
+    `checkin-${eventId}-sync`,
+    ["guests", "checkins"],
     reload,
     eventId ? { column: "event_id", value: eventId } : undefined,
   );
-  useRealtimeSync(
-    `checkin-${eventId}-checkins`,
-    ["checkins"],
-    reload,
-    eventId ? { column: "event_id", value: eventId } : undefined,
+
+  const guestsWithNorm = useMemo(
+    () => guests.map((g) => ({ guest: g, nameNorm: normalizeText(g.full_name) })),
+    [guests],
   );
 
   // Filter
   const filtered = useMemo(() => {
     const qNorm = normalizeText(query);
     const qDigits = onlyDigits(query);
-    const base = guests.filter((g) => {
-      if (statusFilter === "presentes" && g.checked_in_count <= 0) return false;
-      if (statusFilter === "pendentes" && g.checked_in_count >= g.ticket_quantity) return false;
-      if (!query.trim()) return true;
-      if (normalizeText(g.full_name).includes(qNorm)) return true;
-      if (qDigits.length >= 3 && g.cpf?.includes(qDigits)) return true;
-      if (qDigits.length >= 3 && g.phone?.includes(qDigits)) return true;
-      return false;
-    });
-    return base.slice(0, 80);
-  }, [guests, query, statusFilter]);
+    const base: Guest[] = [];
+    for (const item of guestsWithNorm) {
+      const g = item.guest;
+      if (statusFilter === "presentes" && g.checked_in_count <= 0) continue;
+      if (statusFilter === "pendentes" && g.checked_in_count >= g.ticket_quantity) continue;
+      if (query.trim()) {
+        const match =
+          item.nameNorm.includes(qNorm) ||
+          (qDigits.length >= 3 && (g.cpf?.includes(qDigits) || g.phone?.includes(qDigits)));
+        if (!match) continue;
+      }
+      base.push(g);
+      if (base.length >= 80) break;
+    }
+    return base;
+  }, [guestsWithNorm, query, statusFilter]);
 
   const stats = useMemo(() => {
     const total = guests.reduce((s, g) => s + g.ticket_quantity, 0);
@@ -202,6 +219,7 @@ function CheckinPage() {
       guest_id: confirmGuest.id,
       event_id: eventId,
       people_count: confirmPeople,
+      operator: user?.email ?? null,
     });
     if (error) {
       toast.error("Erro ao registrar check-in");
@@ -356,8 +374,8 @@ function CheckinPage() {
                 opt === "todos"
                   ? guests.length
                   : opt === "presentes"
-                  ? guests.filter((g) => g.checked_in_count > 0).length
-                  : guests.filter((g) => g.checked_in_count < g.ticket_quantity).length;
+                    ? guests.filter((g) => g.checked_in_count > 0).length
+                    : guests.filter((g) => g.checked_in_count < g.ticket_quantity).length;
               const active = statusFilter === opt;
               return (
                 <button
@@ -384,8 +402,8 @@ function CheckinPage() {
                 {query
                   ? "Nenhum convidado encontrado."
                   : statusFilter !== "todos"
-                  ? `Nenhum convidado em "${statusFilter}".`
-                  : "Comece digitando o nome do convidado."}
+                    ? `Nenhum convidado em "${statusFilter}".`
+                    : "Comece digitando o nome do convidado."}
               </div>
             ) : (
               filtered.map((g) => {
@@ -419,8 +437,8 @@ function CheckinPage() {
                         fullyIn
                           ? "bg-success/15 text-success border-0 text-sm"
                           : g.checked_in_count > 0
-                          ? "bg-warning/15 text-warning border-0 text-sm"
-                          : "bg-muted text-muted-foreground border-0 text-sm"
+                            ? "bg-warning/15 text-warning border-0 text-sm"
+                            : "bg-muted text-muted-foreground border-0 text-sm"
                       }
                     >
                       {g.checked_in_count}/{g.ticket_quantity}
@@ -476,24 +494,22 @@ function CheckinPage() {
             <p className="text-sm text-muted-foreground">Nenhum ainda.</p>
           ) : (
             <ul className="space-y-2">
-              <AnimatePresence initial={false}>
-                {recent.map((c) => (
-                  <motion.li
-                    key={c.id}
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-surface text-sm"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{c.guest_name}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {format(new Date(c.checked_in_at), "HH:mm:ss")}
-                      </div>
+              {recent.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between p-2.5 rounded-lg bg-surface text-sm transition-all duration-200 animate-in fade-in slide-in-from-top-1"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{c.guest_name}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {format(new Date(c.checked_in_at), "HH:mm:ss")}
                     </div>
-                    <Badge className="bg-success/15 text-success border-0 ml-2">+{c.people_count}</Badge>
-                  </motion.li>
-                ))}
-              </AnimatePresence>
+                  </div>
+                  <Badge className="bg-success/15 text-success border-0 ml-2">
+                    +{c.people_count}
+                  </Badge>
+                </li>
+              ))}
             </ul>
           )}
         </aside>
@@ -505,7 +521,8 @@ function CheckinPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar entrada</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmGuest?.full_name} — {confirmGuest?.checked_in_count}/{confirmGuest?.ticket_quantity} já presentes
+              {confirmGuest?.full_name} — {confirmGuest?.checked_in_count}/
+              {confirmGuest?.ticket_quantity} já presentes
               {confirmGuest && confirmGuest.checked_in_count >= confirmGuest.ticket_quantity && (
                 <span className="block mt-2 text-warning">
                   ⚠️ Esta pessoa já fez check-in completo. Continuar mesmo assim?
@@ -515,7 +532,9 @@ function CheckinPage() {
           </AlertDialogHeader>
 
           <div className="py-4">
-            <div className="text-sm text-muted-foreground mb-2">Quantas pessoas estão entrando agora?</div>
+            <div className="text-sm text-muted-foreground mb-2">
+              Quantas pessoas estão entrando agora?
+            </div>
             <div className="flex items-center justify-center gap-4">
               <Button
                 type="button"
@@ -527,7 +546,9 @@ function CheckinPage() {
               >
                 <MinusCircle className="size-6" />
               </Button>
-              <div className="text-5xl font-display font-bold w-20 text-center">{confirmPeople}</div>
+              <div className="text-5xl font-display font-bold w-20 text-center">
+                {confirmPeople}
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -623,8 +644,8 @@ function MiniStat({
     accent === "success"
       ? "text-success"
       : accent === "warning"
-      ? "text-warning"
-      : "text-foreground";
+        ? "text-warning"
+        : "text-foreground";
   return (
     <div className="rounded-xl border border-border bg-card px-4 py-3">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>

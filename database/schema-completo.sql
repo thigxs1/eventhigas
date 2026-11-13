@@ -96,12 +96,15 @@ CREATE TABLE IF NOT EXISTS public.events (
   event_date                      date NOT NULL,
   event_time                      time,
   location                        text,
+  flyer_url                       text,
   status                          text NOT NULL DEFAULT 'active',  -- active | finished | cancelled
   public_signup_enabled           boolean NOT NULL DEFAULT false,
   public_signup_requires_approval boolean NOT NULL DEFAULT true,
   created_at                      timestamptz NOT NULL DEFAULT now(),
   updated_at                      timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS flyer_url text;
 
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 
@@ -129,8 +132,9 @@ CREATE TABLE IF NOT EXISTS public.guests (
   updated_at         timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_guests_event_id ON public.guests(event_id);
-CREATE INDEX IF NOT EXISTS idx_guests_status   ON public.guests(status);
+CREATE INDEX IF NOT EXISTS idx_guests_event_id          ON public.guests(event_id);
+CREATE INDEX IF NOT EXISTS idx_guests_status            ON public.guests(status);
+CREATE INDEX IF NOT EXISTS idx_guests_event_status_name ON public.guests(event_id, status, full_name);
 
 ALTER TABLE public.guests ENABLE ROW LEVEL SECURITY;
 
@@ -150,8 +154,9 @@ CREATE TABLE IF NOT EXISTS public.checkins (
   checked_in_at  timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_checkins_event_id ON public.checkins(event_id);
-CREATE INDEX IF NOT EXISTS idx_checkins_guest_id ON public.checkins(guest_id);
+CREATE INDEX IF NOT EXISTS idx_checkins_event_id         ON public.checkins(event_id);
+CREATE INDEX IF NOT EXISTS idx_checkins_guest_id         ON public.checkins(guest_id);
+CREATE INDEX IF NOT EXISTS idx_checkins_event_checked_at ON public.checkins(event_id, checked_in_at DESC);
 
 ALTER TABLE public.checkins ENABLE ROW LEVEL SECURITY;
 
@@ -220,9 +225,12 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
   singleton    boolean NOT NULL DEFAULT true UNIQUE,
   system_name  text NOT NULL DEFAULT 'Casa de Eventos',
   logo_url     text,
-  theme        text NOT NULL DEFAULT 'midnight-indigo',
+  theme        text NOT NULL DEFAULT 'obsidian-amber',
+  ticket_types text[] NOT NULL DEFAULT ARRAY['pista', 'vip', 'camarote']::text[],
   updated_at   timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS ticket_types text[] NOT NULL DEFAULT ARRAY['pista', 'vip', 'camarote']::text[];
 
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 

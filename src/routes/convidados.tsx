@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Search, Users } from "lucide-react";
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/convidados")({
 type Row = {
   id: string;
   full_name: string;
+  nameNorm: string;
   cpf: string | null;
   phone: string | null;
   ticket_quantity: number;
@@ -44,7 +45,11 @@ function GuestsPage() {
       )
       .order("full_name", { ascending: true })
       .limit(2000);
-    setRows((data ?? []) as unknown as Row[]);
+    const loaded = ((data ?? []) as unknown as Omit<Row, "nameNorm">[]).map((r) => ({
+      ...r,
+      nameNorm: normalizeText(r.full_name),
+    }));
+    setRows(loaded);
     setLoading(false);
   }
 
@@ -55,14 +60,13 @@ function GuestsPage() {
   // Sincronismo entre dispositivos
   useRealtimeSync("convidados-global", ["guests", "checkins"], load);
 
-
   const filtered = useMemo(() => {
     if (!query.trim()) return rows.slice(0, 200);
     const qN = normalizeText(query);
     const qD = onlyDigits(query);
     return rows
       .filter((r) => {
-        if (normalizeText(r.full_name).includes(qN)) return true;
+        if (r.nameNorm.includes(qN)) return true;
         if (qD.length >= 3 && r.cpf?.includes(qD)) return true;
         if (qD.length >= 3 && r.phone?.includes(qD)) return true;
         return false;
@@ -72,10 +76,7 @@ function GuestsPage() {
 
   return (
     <div className="px-5 md:px-8 py-7 md:py-9 max-w-[1400px] mx-auto">
-      <PageHeader
-        title="Convidados"
-        subtitle="Busca global em todos os eventos."
-      />
+      <PageHeader title="Convidados" subtitle="Busca global em todos os eventos." />
 
       <div className="relative mb-5">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
@@ -135,8 +136,8 @@ function GuestsPage() {
                           r.checked_in_count >= r.ticket_quantity
                             ? "bg-success/15 text-success border-0"
                             : r.checked_in_count > 0
-                            ? "bg-warning/15 text-warning border-0"
-                            : "bg-muted text-muted-foreground border-0"
+                              ? "bg-warning/15 text-warning border-0"
+                              : "bg-muted text-muted-foreground border-0"
                         }
                       >
                         {r.checked_in_count}/{r.ticket_quantity}

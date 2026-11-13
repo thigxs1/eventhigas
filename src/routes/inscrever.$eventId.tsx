@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
@@ -41,7 +41,7 @@ type PublicEvent = {
   status: string;
   public_signup_enabled: boolean;
   public_signup_requires_approval: boolean;
-  flyer_url: string | null;
+  flyer_url?: string | null;
 };
 
 const signupSchema = z.object({
@@ -72,9 +72,7 @@ function PublicSignupPage() {
     (async () => {
       const { data, error } = await supabase
         .from("events")
-        .select(
-          "id, name, event_date, event_time, location, description, status, public_signup_enabled, public_signup_requires_approval, flyer_url",
-        )
+        .select("*")
         .eq("id", eventId)
         .maybeSingle();
       if (!active) return;
@@ -155,9 +153,9 @@ function PublicSignupPage() {
       <div className="max-w-xl mx-auto px-5 py-10 md:py-14">
         {event.flyer_url && (
           <div className="mb-8 rounded-2xl overflow-hidden border border-border shadow-lg">
-            <img 
-              src={event.flyer_url} 
-              alt="Flyer do evento" 
+            <img
+              src={event.flyer_url}
+              alt="Flyer do evento"
               className="w-full h-auto object-cover"
             />
           </div>
@@ -165,9 +163,7 @@ function PublicSignupPage() {
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground mb-3">
           <Sparkles className="size-3.5" /> Lista VIP
         </div>
-        <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
-          {event.name}
-        </h1>
+        <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">{event.name}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {format(new Date(event.event_date + "T00:00:00"), "EEEE, dd 'de' MMMM 'de' yyyy", {
             locale: ptBR,
@@ -190,7 +186,10 @@ function PublicSignupPage() {
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="mt-8 space-y-4 rounded-2xl border border-border bg-[image:var(--gradient-surface)] p-6">
+          <form
+            onSubmit={handleSubmit}
+            className="mt-8 space-y-4 rounded-2xl border border-border bg-[image:var(--gradient-surface)] p-6"
+          >
             <div>
               <Label htmlFor="full_name">Nome completo *</Label>
               <Input
@@ -243,7 +242,9 @@ function PublicSignupPage() {
                 min={1}
                 max={20}
                 value={ticketQuantity}
-                onChange={(e) => setTicketQuantity(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                onChange={(e) =>
+                  setTicketQuantity(Math.max(1, Math.min(20, Number(e.target.value) || 1)))
+                }
               />
               <p className="text-[10px] text-muted-foreground mt-1">Incluindo você.</p>
             </div>
@@ -261,12 +262,19 @@ function PublicSignupPage() {
 
             {event.public_signup_requires_approval && (
               <p className="text-xs text-muted-foreground">
-                Esta lista exige aprovação do organizador. Você será avisado quando sua inscrição for aprovada.
+                Esta lista exige aprovação do organizador. Você será avisado quando sua inscrição
+                for aprovada.
               </p>
             )}
 
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? (<><Loader2 className="size-4 animate-spin" /> Enviando…</>) : "Enviar inscrição"}
+              {submitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Enviando…
+                </>
+              ) : (
+                "Enviar inscrição"
+              )}
             </Button>
           </form>
         )}

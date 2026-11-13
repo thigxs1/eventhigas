@@ -58,7 +58,7 @@ function AdminPage() {
   const [loadingUsers, setLoadingUsers] = useState(true);
 
   const [systemName, setSystemName] = useState("");
-  const [theme, setTheme] = useState<ThemeId>("midnight-indigo");
+  const [theme, setTheme] = useState<ThemeId>("obsidian-amber");
   const [ticketTypes, setTicketTypes] = useState<string[]>([]);
   const [newType, setNewType] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
@@ -73,7 +73,7 @@ function AdminPage() {
   useEffect(() => {
     if (settings) {
       setSystemName(settings.system_name);
-      setTheme((settings.theme as ThemeId) ?? "midnight-indigo");
+      setTheme((settings.theme as ThemeId) ?? "obsidian-amber");
       setTicketTypes(settings.ticket_types ?? []);
     }
   }, [settings]);

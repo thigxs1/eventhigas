@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
@@ -147,7 +147,8 @@ function EventDetailPage() {
         .from("guests")
         .select("*")
         .eq("event_id", eventId)
-        .order("full_name", { ascending: true }),
+        .order("full_name", { ascending: true })
+        .limit(5000),
     ]);
     setEvent((ev as EventRow) ?? null);
     setGuests((gs ?? []) as Guest[]);
@@ -158,12 +159,8 @@ function EventDetailPage() {
     load();
   }, [eventId]);
 
-  // Sincronismo entre dispositivos: recarrega quando guests/checkins/events mudam
-  useRealtimeSync(`event-${eventId}-guests`, ["guests"], load, {
-    column: "event_id",
-    value: eventId,
-  });
-  useRealtimeSync(`event-${eventId}-checkins`, ["checkins"], load, {
+  // Sincronismo entre dispositivos: canal único para guests/checkins evita recarregamentos duplicados
+  useRealtimeSync(`event-${eventId}-data`, ["guests", "checkins"], load, {
     column: "event_id",
     value: eventId,
   });
@@ -192,10 +189,7 @@ function EventDetailPage() {
   }
 
   async function changeStatus(newStatus: "active" | "finished" | "cancelled") {
-    const { error } = await supabase
-      .from("events")
-      .update({ status: newStatus })
-      .eq("id", eventId);
+    const { error } = await supabase.from("events").update({ status: newStatus }).eq("id", eventId);
     if (error) {
       toast.error("Erro ao atualizar status");
       return;
@@ -208,13 +202,18 @@ function EventDetailPage() {
   async function uploadFlyer(file: File) {
     const ext = file.name.split(".").pop() || "png";
     const path = `flyer-${eventId}-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("branding").upload(path, file, { upsert: true });
+    const { error: upErr } = await supabase.storage
+      .from("branding")
+      .upload(path, file, { upsert: true });
     if (upErr) {
       toast.error(upErr.message);
       return;
     }
     const { data } = supabase.storage.from("branding").getPublicUrl(path);
-    const { error } = await supabase.from("events").update({ flyer_url: data.publicUrl }).eq("id", eventId);
+    const { error } = await supabase
+      .from("events")
+      .update({ flyer_url: data.publicUrl })
+      .eq("id", eventId);
     if (error) {
       toast.error(error.message);
       return;
@@ -264,15 +263,15 @@ function EventDetailPage() {
                 event.status === "active"
                   ? "bg-success/15 text-success border-0 mb-2"
                   : event.status === "finished"
-                  ? "bg-muted text-muted-foreground border-0 mb-2"
-                  : "bg-destructive/15 text-destructive border-0 mb-2"
+                    ? "bg-muted text-muted-foreground border-0 mb-2"
+                    : "bg-destructive/15 text-destructive border-0 mb-2"
               }
             >
               {event.status === "active"
                 ? "Ativo"
                 : event.status === "finished"
-                ? "Finalizado"
-                : "Cancelado"}
+                  ? "Finalizado"
+                  : "Cancelado"}
             </Badge>
             <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
               {event.name}
@@ -292,17 +291,15 @@ function EventDetailPage() {
               )}
             </div>
             {event.description && (
-              <p className="mt-3 text-sm text-muted-foreground max-w-2xl">
-                {event.description}
-              </p>
+              <p className="mt-3 text-sm text-muted-foreground max-w-2xl">{event.description}</p>
             )}
           </div>
           <div className="flex flex-col items-center gap-3 shrink-0 ml-auto">
             {event.flyer_url ? (
               <div className="relative group">
-                <img 
-                  src={event.flyer_url} 
-                  alt="Flyer" 
+                <img
+                  src={event.flyer_url}
+                  alt="Flyer"
                   className="size-28 rounded-xl object-cover border border-border shadow-sm transition-transform group-hover:scale-105"
                 />
                 <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-xl">
@@ -334,9 +331,9 @@ function EventDetailPage() {
               </label>
             )}
             {event.flyer_url && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="h-7 text-[10px] uppercase text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={removeFlyer}
               >
@@ -392,12 +389,16 @@ function EventDetailPage() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Excluir este evento?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Todos os convidados e check-ins deste evento também serão removidos. Essa ação não pode ser desfeita.
+                        Todos os convidados e check-ins deste evento também serão removidos. Essa
+                        ação não pode ser desfeita.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={deleteEvent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      <AlertDialogAction
+                        onClick={deleteEvent}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
                         Excluir
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -467,13 +468,18 @@ function GuestsTable({
   onChanged: () => void;
   eventName: string;
 }) {
+  const PAGE_SIZE = 100;
   const [sort, setSort] = useState<SortMode>("az");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
+  const [deletingGuest, setDeletingGuest] = useState<Guest | null>(null);
 
   async function deleteGuest(id: string) {
     const { error } = await supabase.from("guests").delete().eq("id", id);
     if (error) toast.error("Erro ao excluir");
     else {
       toast.success("Convidado removido");
+      setDeletingGuest(null);
       onChanged();
     }
   }
@@ -524,12 +530,13 @@ function GuestsTable({
     }
     // BOM para Excel reconhecer UTF-8 e acentos
     const csv = "\uFEFF" + lines.join("\n");
-    const slug = eventName
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "evento";
+    const slug =
+      eventName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "evento";
     const today = new Date().toISOString().slice(0, 10);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -588,11 +595,21 @@ function GuestsTable({
               </tr>
             </thead>
             <tbody>
-              {sortedGuests.map((g) => (
+              {sortedGuests.slice(0, visibleCount).map((g) => (
                 <tr key={g.id} className="border-t border-border hover:bg-surface/50">
                   <td className="px-4 py-3 font-medium">
                     <div className="flex items-center gap-2">
-                      <EditGuestDialog guest={g} onSaved={onChanged} />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0 text-muted-foreground hover:text-primary"
+                        aria-label={`Editar ${g.full_name}`}
+                        title={`Editar ${g.full_name}`}
+                        onClick={() => setEditingGuest(g)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
                       <span className="truncate">{g.full_name}</span>
                     </div>
                   </td>
@@ -603,7 +620,10 @@ function GuestsTable({
                     {formatPhone(g.phone)}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant="secondary" className="bg-primary/10 text-primary border-0 capitalize">
+                    <Badge
+                      variant="secondary"
+                      className="bg-primary/10 text-primary border-0 capitalize"
+                    >
                       {g.ticket_type}
                     </Badge>
                   </td>
@@ -613,45 +633,72 @@ function GuestsTable({
                         g.checked_in_count >= g.ticket_quantity
                           ? "bg-success/15 text-success border-0"
                           : g.checked_in_count > 0
-                          ? "bg-warning/15 text-warning border-0"
-                          : "bg-muted text-muted-foreground border-0"
+                            ? "bg-warning/15 text-warning border-0"
+                            : "bg-muted text-muted-foreground border-0"
                       }
                     >
                       {g.checked_in_count}/{g.ticket_quantity}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-8">
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Remover {g.full_name}?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Os check-ins deste convidado também serão excluídos.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteGuest(g.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Remover
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      aria-label={`Remover ${g.full_name}`}
+                      title={`Remover ${g.full_name}`}
+                      onClick={() => setDeletingGuest(g)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {sortedGuests.length > visibleCount && (
+          <div className="border-t border-border p-3 text-center bg-surface/30">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            >
+              Mostrar mais ({sortedGuests.length - visibleCount} restantes)
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Instância única de modais para evitar montar centenas de Dialogs no DOM */}
+      <EditGuestDialog
+        guest={editingGuest}
+        open={!!editingGuest}
+        onOpenChange={(o) => !o && setEditingGuest(null)}
+        onSaved={onChanged}
+      />
+
+      <AlertDialog open={!!deletingGuest} onOpenChange={(o) => !o && setDeletingGuest(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover {deletingGuest?.full_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os check-ins deste convidado também serão excluídos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingGuest && deleteGuest(deletingGuest.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -684,11 +731,15 @@ function ImportPanel({ eventId, onImported }: { eventId: string; onImported: () 
     if (!preview || preview.length === 0) return;
     setImporting(true);
     const payload = preview.map((r) => ({ ...r, event_id: eventId }));
-    const { error } = await supabase.from("guests").insert(payload);
-    if (error) {
-      toast.error("Erro ao importar: " + error.message);
-      setImporting(false);
-      return;
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
+      const chunk = payload.slice(i, i + CHUNK_SIZE);
+      const { error } = await supabase.from("guests").insert(chunk);
+      if (error) {
+        toast.error("Erro ao importar: " + error.message);
+        setImporting(false);
+        return;
+      }
     }
     await supabase.from("import_history").insert({
       event_id: eventId,
@@ -707,7 +758,8 @@ function ImportPanel({ eventId, onImported }: { eventId: string; onImported: () 
   }
 
   function downloadTemplate() {
-    const csv = "Nome,CPF,Telefone,Quantidade,Tipo,Observacoes\nMaria Silva,12345678900,11999998888,2,VIP,Aniversariante\nJoão Souza,,,1,Pista,";
+    const csv =
+      "Nome,CPF,Telefone,Quantidade,Tipo,Observacoes\nMaria Silva,12345678900,11999998888,2,VIP,Aniversariante\nJoão Souza,,,1,Pista,";
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -724,7 +776,8 @@ function ImportPanel({ eventId, onImported }: { eventId: string; onImported: () 
           <div>
             <h3 className="font-display font-semibold text-lg">Importar lista</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Aceita CSV e Excel (.xlsx). Colunas reconhecidas: Nome, CPF, Telefone, Quantidade, Tipo, Observações.
+              Aceita CSV e Excel (.xlsx). Colunas reconhecidas: Nome, CPF, Telefone, Quantidade,
+              Tipo, Observações.
             </p>
           </div>
           <Button variant="outline" onClick={downloadTemplate}>
@@ -899,7 +952,12 @@ function ManualGuestForm({ eventId, onCreated }: { eventId: string; onCreated: (
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label>Nome completo *</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    maxLength={200}
+                    autoFocus
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-2">
@@ -908,13 +966,22 @@ function ManualGuestForm({ eventId, onCreated }: { eventId: string; onCreated: (
                   </div>
                   <div className="grid gap-2">
                     <Label>Telefone</Label>
-                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={15} />
+                    <Input
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      maxLength={15}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-2">
                     <Label>Quantidade</Label>
-                    <Input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
+                    <Input
+                      type="number"
+                      min="1"
+                      value={qty}
+                      onChange={(e) => setQty(e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label>Tipo</Label>
@@ -939,18 +1006,27 @@ function ManualGuestForm({ eventId, onCreated }: { eventId: string; onCreated: (
   );
 }
 
-function EditGuestDialog({ guest, onSaved }: { guest: Guest; onSaved: () => void }) {
-  const [open, setOpen] = useState(false);
+function EditGuestDialog({
+  guest,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  guest: Guest | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
   const [submitting, setSubmitting] = useState(false);
-  const [name, setName] = useState(guest.full_name);
-  const [cpf, setCpf] = useState(guest.cpf ?? "");
-  const [phone, setPhone] = useState(guest.phone ?? "");
-  const [qty, setQty] = useState(String(guest.ticket_quantity));
-  const [type, setType] = useState(guest.ticket_type);
-  const [notes, setNotes] = useState(guest.notes ?? "");
+  const [name, setName] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [phone, setPhone] = useState("");
+  const [qty, setQty] = useState("1");
+  const [type, setType] = useState("pista");
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    if (open) {
+    if (open && guest) {
       setName(guest.full_name);
       setCpf(guest.cpf ?? "");
       setPhone(guest.phone ?? "");
@@ -962,6 +1038,7 @@ function EditGuestDialog({ guest, onSaved }: { guest: Guest; onSaved: () => void
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!guest) return;
     if (!name.trim()) {
       toast.error("Nome obrigatório");
       return;
@@ -991,22 +1068,12 @@ function EditGuestDialog({ guest, onSaved }: { guest: Guest; onSaved: () => void
       return;
     }
     toast.success("Convidado atualizado");
-    setOpen(false);
+    onOpenChange(false);
     onSaved();
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 shrink-0 text-muted-foreground hover:text-primary"
-          aria-label={`Editar ${guest.full_name}`}
-        >
-          <Pencil className="size-3.5" />
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <form onSubmit={submit}>
           <DialogHeader>
@@ -1016,7 +1083,12 @@ function EditGuestDialog({ guest, onSaved }: { guest: Guest; onSaved: () => void
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>Nome completo *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={200}
+                autoFocus
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
@@ -1033,13 +1105,13 @@ function EditGuestDialog({ guest, onSaved }: { guest: Guest; onSaved: () => void
                 <Label>Quantidade</Label>
                 <Input
                   type="number"
-                  min={Math.max(1, guest.checked_in_count)}
+                  min={Math.max(1, guest?.checked_in_count ?? 1)}
                   value={qty}
                   onChange={(e) => setQty(e.target.value)}
                 />
-                {guest.checked_in_count > 0 && (
+                {(guest?.checked_in_count ?? 0) > 0 && (
                   <p className="text-[11px] text-muted-foreground">
-                    {guest.checked_in_count} já fizeram check-in
+                    {guest?.checked_in_count} já fizeram check-in
                   </p>
                 )}
               </div>
@@ -1054,7 +1126,7 @@ function EditGuestDialog({ guest, onSaved }: { guest: Guest; onSaved: () => void
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -1152,7 +1224,10 @@ function PublicSignupPanel({
     const { error } = await supabase
       .from("guests")
       .update({ status: "approved", ticket_type: defaultType })
-      .in("id", pending.map((g) => g.id));
+      .in(
+        "id",
+        pending.map((g) => g.id),
+      );
     if (error) toast.error("Erro ao aprovar todos");
     else {
       toast.success(`${pending.length} inscrições aprovadas com tipo '${defaultType}'`);
@@ -1189,9 +1264,16 @@ function PublicSignupPanel({
           <div className="grid md:grid-cols-[1fr_auto] gap-6 items-start">
             <div className="space-y-4 min-w-0">
               <div>
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Link público</Label>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Link público
+                </Label>
                 <div className="mt-1.5 flex gap-2">
-                  <Input readOnly value={publicUrl} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                  <Input
+                    readOnly
+                    value={publicUrl}
+                    className="font-mono text-xs"
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
                   <Button type="button" variant="outline" onClick={copyLink}>
                     {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
                     {copied ? "Copiado" : "Copiar"}
@@ -1209,7 +1291,8 @@ function PublicSignupPanel({
                   <div>
                     <div className="font-medium text-sm">Exigir aprovação do admin</div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Quando ativo, novas inscrições ficam pendentes até você aprovar aqui. Quando desativado, entram direto na lista de convidados.
+                      Quando ativo, novas inscrições ficam pendentes até você aprovar aqui. Quando
+                      desativado, entram direto na lista de convidados.
                     </p>
                   </div>
                   <Switch
@@ -1282,7 +1365,9 @@ function PublicSignupPanel({
                     <td className="px-4 py-3 font-medium">
                       <div className="truncate">{g.full_name}</div>
                       {g.notes && (
-                        <div className="text-xs text-muted-foreground truncate max-w-xs">{g.notes}</div>
+                        <div className="text-xs text-muted-foreground truncate max-w-xs">
+                          {g.notes}
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell text-xs">
@@ -1291,16 +1376,18 @@ function PublicSignupPanel({
                       {g.cpf && <div>{formatCPF(g.cpf)}</div>}
                     </td>
                     <td className="px-4 py-3">
-                      <Select 
-                        value={selectedTypes[g.id] || (settings?.ticket_types?.[0] ?? "pista")} 
-                        onValueChange={(v) => setSelectedTypes(prev => ({ ...prev, [g.id]: v }))}
+                      <Select
+                        value={selectedTypes[g.id] || (settings?.ticket_types?.[0] ?? "pista")}
+                        onValueChange={(v) => setSelectedTypes((prev) => ({ ...prev, [g.id]: v }))}
                       >
                         <SelectTrigger className="h-8 bg-surface">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {(settings?.ticket_types ?? ["pista", "vip", "camarote"]).map(t => (
-                            <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                          {(settings?.ticket_types ?? ["pista", "vip", "camarote"]).map((t) => (
+                            <SelectItem key={t} value={t} className="capitalize">
+                              {t}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

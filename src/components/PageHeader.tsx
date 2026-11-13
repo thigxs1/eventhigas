@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import type { ReactNode } from "react";
 
 export function PageHeader({
@@ -13,12 +13,10 @@ export function PageHeader({
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
       <div>
-        <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
+        <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-white/95">
           {title}
         </h1>
-        {subtitle && (
-          <p className="text-muted-foreground text-sm mt-1.5">{subtitle}</p>
-        )}
+        {subtitle && <p className="text-white/55 text-sm mt-1.5">{subtitle}</p>}
       </div>
       {action && <div className="flex items-center gap-2">{action}</div>}
     </div>
