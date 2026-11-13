@@ -9,29 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as ConvidadosRouteImport } from './routes/convidados'
-import { Route as CheckinRouteImport } from './routes/checkin'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CheckinRouteImport } from './routes/checkin'
+import { Route as ConvidadosRouteImport } from './routes/convidados'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as EventosIndexRouteImport } from './routes/eventos.index'
-import { Route as InscreverEventIdRouteImport } from './routes/inscrever.$eventId'
 import { Route as EventosEventIdRouteImport } from './routes/eventos.$eventId'
+import { Route as InscreverEventIdRouteImport } from './routes/inscrever.$eventId'
 import { Route as EventosEventIdDashboardRouteImport } from './routes/eventos.$eventId.dashboard'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConvidadosRoute = ConvidadosRouteImport.update({
-  id: '/convidados',
-  path: '/convidados',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckinRoute = CheckinRouteImport.update({
-  id: '/checkin',
-  path: '/checkin',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -39,9 +29,19 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CheckinRoute = CheckinRouteImport.update({
+  id: '/checkin',
+  path: '/checkin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConvidadosRoute = ConvidadosRouteImport.update({
+  id: '/convidados',
+  path: '/convidados',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventosIndexRoute = EventosIndexRouteImport.update({
@@ -49,14 +49,14 @@ const EventosIndexRoute = EventosIndexRouteImport.update({
   path: '/eventos/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InscreverEventIdRoute = InscreverEventIdRouteImport.update({
-  id: '/inscrever/$eventId',
-  path: '/inscrever/$eventId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const EventosEventIdRoute = EventosEventIdRouteImport.update({
   id: '/eventos/$eventId',
   path: '/eventos/$eventId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InscreverEventIdRoute = InscreverEventIdRouteImport.update({
+  id: '/inscrever/$eventId',
+  path: '/inscrever/$eventId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventosEventIdDashboardRoute = EventosEventIdDashboardRouteImport.update({
@@ -148,25 +148,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/convidados': {
-      id: '/convidados'
-      path: '/convidados'
-      fullPath: '/convidados'
-      preLoaderRoute: typeof ConvidadosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/checkin': {
-      id: '/checkin'
-      path: '/checkin'
-      fullPath: '/checkin'
-      preLoaderRoute: typeof CheckinRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -176,11 +162,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/checkin': {
+      id: '/checkin'
+      path: '/checkin'
+      fullPath: '/checkin'
+      preLoaderRoute: typeof CheckinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/convidados': {
+      id: '/convidados'
+      path: '/convidados'
+      fullPath: '/convidados'
+      preLoaderRoute: typeof ConvidadosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/eventos/': {
@@ -190,18 +190,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/inscrever/$eventId': {
-      id: '/inscrever/$eventId'
-      path: '/inscrever/$eventId'
-      fullPath: '/inscrever/$eventId'
-      preLoaderRoute: typeof InscreverEventIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/eventos/$eventId': {
       id: '/eventos/$eventId'
       path: '/eventos/$eventId'
       fullPath: '/eventos/$eventId'
       preLoaderRoute: typeof EventosEventIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inscrever/$eventId': {
+      id: '/inscrever/$eventId'
+      path: '/inscrever/$eventId'
+      fullPath: '/inscrever/$eventId'
+      preLoaderRoute: typeof InscreverEventIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/eventos/$eventId/dashboard': {
